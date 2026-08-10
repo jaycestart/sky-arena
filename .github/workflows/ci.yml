@@ -1,0 +1,171 @@
+# SKY ARENA 자동 검증 — 커밋할 때마다 세 명이 자기 일을 한다.
+#
+# 이 저장소에는 빌드 단계도 패키지 매니저도 없다(파이썬 표준 라이브러리 + 손으로
+# 쓴 WebGL). 그래서 흔한 "npm test" 류가 아니라, 이 프로젝트에서 **실제로
+# 사람을 물었던 버그**를 그대로 재현해 막는 검사만 넣었다. 새 검사를 더할 때도
+# 같은 기준으로 하라 — 한 번도 안 난 문제를 예방하는 검사는 유지비만 든다.
+name: 검증
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:      # Actions 탭에서 손으로도 돌릴 수 있다
+
+jobs:
+  검사원:
+    name: 검사원 — 문법과 죽은 참조
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      - name: 서버 파이썬 문법
+        run: python -m py_compile server/*.py
+
+      - name: 클라이언트 JS 문법
+        # node 가 없는 개발 환경이라 로컬에서는 못 잡는 것들이다.
+        # CI 러너에는 node 가 이미 깔려 있으니 여기서만이라도 판다.
+        run: |
+          fail=0
+          for f in $(find public/js -name '*.js'); do
+            node --check "$f" 2>&1 || { echo "::error file=$f::문법 오류"; fail=1; }
+          done
+          exit $fail
+
+      - name: 삭제된 이름을 아직 부르는 곳
+        # 기총을 미사일로 갈아엎을 때 WEAPONS[GUN]["tracer"] 참조가 남아
+        # 스냅샷을 만들 때마다 KeyError 가 났다. 그 부류를 막는다.
+        run: |
+          fail=0
+          for name in _fire_gun 'class Bullet' setBank rollFree speedStreaks; do
+            if grep -rn --include=*.py --include=*.js "$name" server public/js; then
+              echo "::error::삭제된 이름 '$name' 을 아직 참조한다"
+              fail=1
+            fi
+          done
+          exit $fail
+
+  정합성감사:
+    name: 정합성 감사 — 서버와 클라가 같은 물리인가
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      - name: 회전율 정의가 서버 한 곳뿐인가
+        # 클라가 제원을 스스로 들고 있으면 서버와 어긋나 화면이 떨린다.
+        # world.js 는 welcome 의 classes 를 읽기만 해야 한다.
+        # 중립 폴백 1 은 허용한다. 잡으려는 건 서버 제원을 **복사한 실제 값**
+        # (2.6 / 2.9 / 6.4 같은 것)이다 — 그게 서버를 고쳤을 때 조용히 어긋난다.
+        run: |
+          if grep -nE '(pitchRate|yawRate|rollRate)[[:space:]]*[:=][[:space:]]*([0-9]+\.[0-9]|[2-9]|[0-9]{2,})' public/js/*.js; then
+            echo "::error::클라이언트가 회전율 실제 값을 들고 있다 — 서버 AIRCRAFT 한 곳에만 둘 것"
+            exit 1
+          fi
+
+      - name: 자세 적분식이 서버와 클라에서 같은가
+        # 서버 game.py 는 hdg/pit/bnk 를 wrap_pi 로 이어 간다. world.js 도
+        # 같은 식이어야 한다 — 한쪽만 고치면 예측이 어긋나 기체가 떤다.
+        run: |
+          python - <<'PY'
+          import re, sys
+          srv = open('server/game.py', encoding='utf-8').read()
+          cli = open('public/js/world.js', encoding='utf-8').read()
+          ok = True
+          if 'q_hpb(self.hdg, self.pit, self.bnk)' not in srv:
+              print('::error::server/game.py 의 자세 조립이 바뀌었다'); ok = False
+          if 'quat.hpb(me.hpb[0], me.hpb[1], me.hpb[2])' not in cli:
+              print('::error::world.js 의 자세 조립이 바뀌었다'); ok = False
+          # 세 각도 모두 wrap 을 거치는가
+          if len(re.findall(r'wrap_pi\(self\.(hdg|pit|bnk)', srv)) != 3:
+              print('::error::서버가 세 각도를 모두 wrap_pi 하지 않는다'); ok = False
+          if len(re.findall(r'wrapPi\(me\.hpb\[[012]\]', cli)) != 3:
+              print('::error::클라가 세 각도를 모두 wrapPi 하지 않는다'); ok = False
+          sys.exit(0 if ok else 1)
+          PY
+
+  테스트파일럿:
+    name: 테스트 파일럿 — 봇만 60초 전투
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      - name: 봇 6기로 60초 싸워 본다
+        # 이 검사가 잡는 것: 봇이 전장 밖으로 새거나(이탈사), 무기가 안 나가거나,
+        # 자세 모델이 깨져 제자리에서 도는 상태. 전부 실제로 있었던 일이다.
+        run: |
+          cd server && python - <<'PY'
+          import math, random, sys
+          random.seed(20260810)
+          import game
+
+          w = game.World("ci")
+          dt = 1 / 50
+          launches = 0
+          max_pit = max_bnk = 0.0
+          for _ in range(3000):                       # 60초
+              w.step(dt)
+              launches += sum(1 for e in w.events if e.get("e") == "launch")
+              w.events.clear()
+              for p in w.planes.values():
+                  if p.alive:
+                      max_pit = max(max_pit, abs(math.degrees(p.pit)))
+                      max_bnk = max(max_bnk, abs(math.degrees(p.bnk)))
+
+          kills = sum(p.kills for p in w.planes.values())
+          deaths = sum(p.deaths for p in w.planes.values())
+          alive = sum(1 for p in w.planes.values() if p.alive)
+          print(f"기체 {len(w.planes)}기 / 격추 {kills} / 사망 {deaths} / 생존 {alive}")
+          print(f"발사 {launches}회 ({launches/60:.1f}/초)")
+          print(f"기수각 최대 {max_pit:.0f}도 / 비틀기 최대 {max_bnk:.1f}도")
+
+          bad = []
+          # 격추보다 사망이 많으면 그 차이는 전장 이탈사·지면 충돌이다.
+          # 옛날에 봇이 직선으로 아레나를 벗어나 60초에 14기가 그렇게 죽었다.
+          if deaths > kills + 3:
+              bad.append(f"사망({deaths})이 격추({kills})보다 많다 — 이탈사·추락 의심")
+          if kills == 0:
+              bad.append("60초 동안 한 번도 격추가 없다 — 무기나 조준이 죽었다")
+          if launches == 0:
+              bad.append("아무도 발사하지 않는다")
+          # 사람은 A·D 로만 비튼다. 봇은 비틀지 않으므로 0 이어야 한다.
+          if max_bnk > 1.0:
+              bad.append(f"봇이 저절로 비틀린다({max_bnk:.1f}도) — 자세 모델이 샌다")
+          if max_pit < 30:
+              bad.append("봇이 수직 기동을 전혀 안 한다 — 옛 원반 선회로 돌아갔다")
+          if alive == 0:
+              bad.append("전멸 — 재출격이 안 된다")
+
+          for b in bad:
+              print(f"::error::{b}")
+          sys.exit(1 if bad else 0)
+          PY
+
+      - name: 발사 속도가 쿨다운을 지키는가
+        # 실측에서 초당 73발이 나온 적이 있다(이론 상한의 3.5배). 원인을
+        # 아직 못 찾았으므로 **회귀 감시만** 걸어 둔다 — 지금보다 나빠지면 운다.
+        run: |
+          cd server && python - <<'PY'
+          import random, sys
+          random.seed(20260810)
+          import game
+          w = game.World("rate")
+          n = 0
+          for _ in range(1500):                        # 30초
+              w.step(1 / 50)
+              n += sum(1 for e in w.events if e.get("e") == "launch")
+              w.events.clear()
+          planes = len(w.planes)
+          cap = planes * (1 / game.WEAPONS[0]["cd"] + 1 / game.WEAPONS[1]["cd"])
+          rate = n / 30
+          print(f"{planes}기 / 실측 {rate:.1f}발·초 / 이론 상한 {cap:.1f}발·초")
+          # 상한의 1.5배까지는 넘어간다(재출격이 쿨다운을 초기화하므로 조금 넘는다).
+          if rate > cap * 1.5:
+              print(f"::error::발사가 이론 상한의 {rate/cap:.1f}배다 — 쿨다운이 새고 있다")
+              sys.exit(1)
+          PY

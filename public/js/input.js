@@ -273,7 +273,11 @@ export class Input {
   sample(dt = 1 / 60, me = null, hpb = null) {
     const k = this.keys;
     let pitch = 0, roll = 0, yaw = 0;
-    const ac = this.ac || { pitchRate: 2.6, yawRate: 2.9, rollRate: 6.4 };
+    // 제원은 **서버 AIRCRAFT 한 곳에만** 있다(welcome 의 classes → world.ac).
+    // 여기에 실제 숫자를 적어 두면 서버를 고쳤을 때 조용히 어긋나서, 기수
+    // 추종 이득이 기체마다 틀어진다. 폴백은 welcome 이 오기 전 한두 프레임
+    // 동안만 쓰이므로 중립값 1 이면 충분하다 — 틀린 숫자보다 낫다.
+    const ac = this.ac || { pitchRate: 1, yawRate: 1, rollRate: 1 };
 
     if (me) {
       hpb = hpb || quat.toHpb(me.q);

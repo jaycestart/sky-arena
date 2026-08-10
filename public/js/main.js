@@ -435,7 +435,13 @@ function onEvent(ev) {
   } else if (ev.e === 'boom') {
     world.addBoom(ev.x, ev.y, ev.z, ev.g, ev.w);
   } else if (ev.e === 'launch') {
-    if (ev.id !== world.myId) sfx.missile();
+    // **owner 로 분기하지 않는다.** 예전 `ev.id !== world.myId` 조건은
+    // (a) 내 로켓 발사음을 평생 못 나게 했고(유도탄만 world._applyMe 의
+    // 잔량 감소 경로로 울렸다) (b) 나·남·봇이 서로 다른 코드를 타게 했다.
+    // 3인칭 기본 시점에서 내 기체가 화면에서 가장 크므로 내 발사 섬광이
+    // 가장 크게 보여야 할 연출이기도 하다.
+    sfx.missile();
+    scene.launchFx?.(ev.id);
   }
 }
 

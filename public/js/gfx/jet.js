@@ -571,7 +571,9 @@ export function buildJet() {
     const fcx = cxx * fk, fcy = cyy * fk;   // 덕트 끝 중심
     const fw = w * fk, fh = hgt * fk;       // 덕트 끝 내경(타원)
     const NB = 14;                          // 블레이드 장수
-    const bz = fz - 0.06;                   // 압축기 배면(블레이드 뒤 배경)
+    // 압축기 배면. **덕트 끝 링과 정확히 같은 평면·같은 반경**이라 관이
+    // 빈틈없이 닫힌다 — 조금이라도 어긋나면 그 틈으로 동체 안쪽이 다시 보인다.
+    const bz = fz;
     const nz1 = [0, 0, 1];
     const rim = (a, s) => [fcx + Math.cos(a) * fw * s, fcy + Math.sin(a) * fh * s, bz];
     for (let k = 0; k < NB; k++) {
@@ -597,10 +599,12 @@ export function buildJet() {
     const TW = 22 * Math.PI / 180, ri = 0.105;
     for (let k = 0; k < NB; k++) {
       const a = (k / NB) * Math.PI * 2, b2 = a + TW;
-      const i0 = [fcx + Math.cos(a) * ri, fcy + Math.sin(a) * ri, fz + 0.02];
-      const i1 = [fcx + Math.cos(a) * ri, fcy + Math.sin(a) * ri, fz - 0.10];
-      const o0 = [fcx + Math.cos(b2) * fw * 0.98, fcy + Math.sin(b2) * fh * 0.98, fz + 0.02];
-      const o1 = [fcx + Math.cos(b2) * fw * 0.98, fcy + Math.sin(b2) * fh * 0.98, fz - 0.10];
+      // 배면(fz)보다 반드시 앞(z 가 큼)이어야 한다 — 뒤로 넘기면 깊이 판정에
+      // 걸려 블레이드가 통째로 사라진다.
+      const i0 = [fcx + Math.cos(a) * ri, fcy + Math.sin(a) * ri, fz + 0.08];
+      const i1 = [fcx + Math.cos(a) * ri, fcy + Math.sin(a) * ri, fz + 0.005];
+      const o0 = [fcx + Math.cos(b2) * fw * 0.98, fcy + Math.sin(b2) * fh * 0.98, fz + 0.08];
+      const o1 = [fcx + Math.cos(b2) * fw * 0.98, fcy + Math.sin(b2) * fh * 0.98, fz + 0.005];
       const n = faceN(i0, o0, o1, 1);
       M.tri(i0, o0, o1, n, n, n, [0.20, 0.20, 0.22], M_FAN);
       M.tri(i0, o1, i1, n, n, n, [0.20, 0.20, 0.22], M_FAN);
@@ -935,8 +939,11 @@ export function buildMissile() {
   const g = ST.map((s) => section(s[1], s[1], 2.0, 0, s[0], DIV));
   // 도장은 오프화이트 + 노즈 뒤 갈색 띠(탄두 표시). 하늘 배경에서 밝은
   // 창으로 읽혀야 근거리 통과 순간이 보인다.
+  // 띠는 **스테이션 위에 얹어야** 보인다. 정점색이라 스테이션 사이 z 구간을
+  // 조건으로 잡으면 어느 정점도 안 걸려 띠가 통째로 사라진다(z=1.470 · 1.300
+  // 두 링을 함께 칠해 그 사이 한 줄이 갈색이 된다).
   const BODY = [0.62, 0.62, 0.60], WARHEAD = [0.30, 0.19, 0.12];
-  M.grid(g, (p) => (p[2] < 1.30 && p[2] > 1.05 ? WARHEAD : BODY), [0.0, 0.42], false, true);
+  M.grid(g, (p) => (p[2] > 1.28 && p[2] < 1.50 ? WARHEAD : BODY), [0.0, 0.42], false, true);
   const last = g[g.length - 1];
   for (let k = 0; k < DIV; k++) {
     M.tri(last[k], [0, 0, -1.42], last[k + 1], [0, 0, -1], [0, 0, -1], [0, 0, -1],

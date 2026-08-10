@@ -1537,6 +1537,20 @@ export class Scene {
     for (const m of W.missiles) fx.missile(m.id, m.pos, m.vel, dt, lit);
     const live = new Set(W.missiles.map((m) => m.id));
     for (const id of [...fx.trails.keys()]) if (!live.has(id)) fx.dropTrail(id);
+    // 사라진 미사일의 마지막 속도를 잠깐 들고 있는다 — 공중폭발 파편 링을
+    // 진행 방향에 수직으로 놓으려면 방향이 필요한데, 그때 미사일은 이미
+    // 스냅샷에서 빠져 있다. 프로토콜을 늘리지 않고 방향을 얻는 유일한 길이다.
+    const now = performance.now();
+    this._deadMsl = (this._deadMsl || []).filter((d) => now - d.t < 1200);
+    const seen = this._mslSeen || (this._mslSeen = new Map());
+    for (const [id, d] of seen) {
+      if (!live.has(id)) {
+        this._deadMsl.push({ p: d.p, v: d.v, t: now });
+        seen.delete(id);
+      }
+    }
+    if (this._deadMsl.length > 16) this._deadMsl.splice(0, this._deadMsl.length - 16);
+    for (const m of W.missiles) seen.set(m.id, { p: m.pos.slice(), v: m.vel.slice() });
 
     for (const f of W.flares) fx.flare(f.pos[0], f.pos[1], f.pos[2], dt);
 
@@ -1588,19 +1602,63 @@ export class Scene {
     }
 
     // 폭발/명중 — world.booms 에서 새로 생긴 것만 소비한다
-    for (const e of W.booms) {
-      if (e._fx) continue;
-      e._fx = 1;
-      if (e.kind === 'spark') this.fx.spark(e.x, e.y, e.z, e.seed || 0);
-      else {
-        this.fx.explosion(e.x, e.y, e.z);
-        // 지면이면 먼지 기둥 + 파편, 물이면 흰 물기둥 + 링 파문
-        if (e.ground) this.fx.impact(e.x, e.y, e.z, !!e.water);
-        // 짧은 전역 섬광 — 거의 공짜인데 설득력이 크다
-        const d = v3.len(v3.sub([e.x, e.y, e.z], this.camEye));
-        this.flash = Math.max(this.flash, clamp(1 - d / 2200, 0, 1) * 0.8);
-      }
+    const fresh = [];
+    for (const e of W.booms) if (!e._fx) { e._fx = 1; fresh.push(e); }
+    // ── 근접신관 공중폭발 vs 격추 폭발 ────────────────────────────
+    // 서버는 둘 다 같은 'boom' 이벤트로 내려보내고 **프로토콜은 안 건드린다**.
+    // 대신 서버가 격추 순간 두 발을 함께 쏘는 성질을 쓴다(game.py):
+    // _apply_hit → _kill 이 기체 위치에 하나, 곧이어 신관 코드가 경로 최근접점
+    // (신관 반경 최대 45m)에 하나. 그래서 **같은 배치에 70m 안쪽으로 붙어 오는
+    // 공중 boom 두 개**는 '격추 + 그 신관' 이고, 혼자 오는 것은 순수 근접신관이다.
+    // 앞의 것이 기체 위치이므로 폭발은 거기서 그리고 뒤의 것은 버린다.
+    const air = fresh.filter((e) => e.kind !== 'spark' && !e.ground);
+    for (const e of air) {
+      if (e._skip || e._kill) continue;
+      const near = air.find((o) => o !== e && !o._skip && !o._kill
+        && Math.hypot(o.x - e.x, o.y - e.y, o.z - e.z) < 70);
+      if (near) { near._skip = 1; e._kill = 1; }
     }
+    for (const e of fresh) {
+      if (e._skip) continue;
+      if (e.kind === 'spark') { this.fx.spark(e.x, e.y, e.z, e.seed || 0); continue; }
+      const d = v3.len(v3.sub([e.x, e.y, e.z], this.camEye));
+      if (!e.ground && !e._kill) {
+        // 탄두만 터진 자리 — 짧은 섬광 + 원반형 파편 링, 검은 연기 기둥 없음
+        this.fx.airburst(e.x, e.y, e.z, this.mslDirNear(e));
+        this.flash = Math.max(this.flash, clamp(1 - d / 2200, 0, 1) * 0.35);
+        continue;
+      }
+      this.fx.explosion(e.x, e.y, e.z);
+      // 지면이면 먼지 기둥 + 파편, 물이면 흰 물기둥 + 링 파문
+      if (e.ground) this.fx.impact(e.x, e.y, e.z, !!e.water);
+      // 짧은 전역 섬광 — 거의 공짜인데 설득력이 크다
+      this.flash = Math.max(this.flash, clamp(1 - d / 2200, 0, 1) * 0.8);
+    }
+  }
+
+  /** 그 자리에서 막 사라진 미사일의 진행 방향(없으면 null). */
+  mslDirNear(e) {
+    let best = null, bd = 200 * 200;
+    for (const d of this._deadMsl || []) {
+      const q = (d.p[0] - e.x) ** 2 + (d.p[1] - e.y) ** 2 + (d.p[2] - e.z) ** 2;
+      if (q < bd) { bd = q; best = d; }
+    }
+    return best ? best.v : null;
+  }
+
+  /**
+   * 발사 이펙트. main.js 의 launch 이벤트에서 부른다 — **`ev.id` 로 분기하지
+   * 않는다.** 발사점은 프로토콜 변경 없이 유도된다: 서버 _launch 가
+   * `p.pos + f·4.0·ms + r·2.74·ms` 를 쓰고, 클라는 그 플레이어의 pos·q 를
+   * 스냅샷에서 이미 갖고 있다. 봇도 같은 launch 이벤트를 내므로 자동으로
+   * 같은 연출을 받는다.
+   */
+  launchFx(id) {
+    const W = this.world, fx = this.fx;
+    if (!fx || !this.q?.particles) return;
+    const pl = W.byId(id);
+    if (!pl) return;
+    fx.launch(pl.pos, quat.fwd(pl.q), quat.right(pl.q), quat.up(pl.q), W.scaleOf(id));
   }
 
   drawFx() {
