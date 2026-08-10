@@ -1,0 +1,18 @@
+# 파이썬
+__pycache__/
+*.py[cod]
+
+# 서버가 돌면서 남기는 것 — 기기마다 다르고 되돌릴 가치가 없다
+server.log
+server.err.log
+*.log
+
+# 편집기 · OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+
+# 임시 산출물
+*.tmp
+eqv-tmp.json

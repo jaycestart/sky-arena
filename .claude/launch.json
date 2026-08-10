@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "sky-arena",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["C:\\Users\\jayce\\sky-arena\\server\\app.py", "--port", "8080"],
+      "port": 8080
+    }
+  ]
+}

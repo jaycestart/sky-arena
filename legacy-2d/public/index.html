@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#05070f">
+<title>SKY ARENA — 실시간 멀티 공중전</title>
+<meta name="description" content="브라우저에서 바로 즐기는 실시간 멀티플레이어 공중전">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SKY ARENA">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<!-- ── HUD ─────────────────────────────────────────────── -->
+<div id="hud" class="hidden">
+  <div id="topbar">
+    <div class="panel" id="stats">
+      <div class="stat"><span class="lbl">SCORE</span><b id="s-score">0</b></div>
+      <div class="stat"><span class="lbl">KILLS</span><b id="s-kills">0</b></div>
+      <div class="stat"><span class="lbl">LV</span><b id="s-level">1</b></div>
+      <div class="stat"><span class="lbl">PING</span><b id="s-ping">–</b></div>
+      <div class="stat net"><span class="lbl">FPS</span><b id="s-fps">–</b></div>
+      <div class="stat net"><span class="lbl">KB/S</span><b id="s-kbps">–</b></div>
+    </div>
+    <div class="panel" id="board">
+      <div class="board-title"><span id="room-name">MAIN</span> · 순위</div>
+      <ol id="board-list"></ol>
+    </div>
+  </div>
+
+  <div id="feed"></div>
+  <div id="banner"></div>
+  <div id="warn" class="hidden">⚠ 락온 경고</div>
+
+  <div id="weapons"></div>
+
+  <div id="bottom">
+    <div id="gauges">
+      <div class="gauge"><i class="g-ico">♥</i>
+        <div class="bar"><span id="bar-hp"></span><em id="bar-sh"></em></div>
+      </div>
+      <div class="gauge"><i class="g-ico">⚡</i>
+        <div class="bar boost"><span id="bar-en"></span></div>
+      </div>
+      <div class="gauge"><i class="g-ico" id="heat-ico">🌡</i>
+        <div class="bar heat"><span id="bar-heat"></span></div>
+      </div>
+      <div class="gauge slim">
+        <i class="g-ico">➤</i><div id="ammo"></div>
+        <i class="g-ico roll">↻</i><div class="bar roll"><span id="bar-roll"></span></div>
+      </div>
+    </div>
+    <canvas id="minimap" width="150" height="150"></canvas>
+  </div>
+
+  <div id="respawn" class="hidden">
+    <div class="big">격추됨</div>
+    <div class="sub" id="killed-by"></div>
+    <div class="sub"><b id="respawn-t">3</b>초 후 재출격</div>
+    <div class="spec" id="spec-note"></div>
+  </div>
+
+  <div id="emotes">
+    <button data-emote="0">👍</button><button data-emote="1">😂</button>
+    <button data-emote="2">🔥</button><button data-emote="3">😱</button>
+  </div>
+
+  <button id="btn-settings" title="설정">⚙</button>
+  <button id="btn-home" title="홈으로">⏻</button>
+
+  <!-- 모바일 전용 컨트롤 -->
+  <div id="touch" class="hidden">
+    <div id="stick"><div id="stick-knob"></div></div>
+    <div id="btns">
+      <button id="btn-roll" class="tbtn small">회피</button>
+      <button id="btn-missile" class="tbtn small ms">미사일</button>
+      <button id="btn-boost" class="tbtn">부스트</button>
+      <button id="btn-fire" class="tbtn fire">발사</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 설정 ────────────────────────────────────────────── -->
+<div id="settings" class="hidden">
+  <div class="menu-card">
+    <h2>설정</h2>
+    <label class="row"><span>사운드</span><input type="checkbox" id="set-sound"></label>
+    <label class="row"><span>음량</span><input type="range" id="set-vol" min="0" max="1" step="0.05"></label>
+    <label class="row"><span>조향 감도</span><input type="range" id="set-sens" min="0.4" max="2" step="0.1"></label>
+    <label class="row"><span>오토 파이어</span><input type="checkbox" id="set-auto"></label>
+    <label class="row"><span>그래픽</span>
+      <select id="set-quality">
+        <option value="auto">자동</option><option value="high">높음</option><option value="low">낮음</option>
+      </select>
+    </label>
+    <label class="row"><span>네트워크 표시</span><input type="checkbox" id="set-net"></label>
+    <button id="set-close">닫기</button>
+  </div>
+</div>
+
+<!-- ── 홈 화면 ─────────────────────────────────────────── -->
+<main id="home">
+  <div class="home-inner">
+
+    <header class="hero">
+      <div class="hero-mark">✈</div>
+      <h1>SKY<span>ARENA</span></h1>
+      <p class="tag">브라우저에서 바로 붙는 실시간 멀티 공중전</p>
+      <div id="server-stat" class="srv">서버 확인 중…</div>
+    </header>
+
+    <section class="card">
+      <h3>기체 선택</h3>
+      <div id="class-pick"></div>
+    </section>
+
+    <section class="card">
+      <form id="join-form" autocomplete="off">
+        <input id="nick" maxlength="14" placeholder="콜사인 입력" spellcheck="false">
+        <button id="join" type="submit">출격</button>
+      </form>
+      <div class="roomrow">
+        <input id="room" maxlength="16" placeholder="방 이름 (기본 main)" spellcheck="false">
+        <button id="copy-lan" type="button" title="같은 와이파이 접속 주소 복사">주소 복사</button>
+      </div>
+      <div id="conn" class="conn">서버 연결 중…</div>
+      <div class="record" id="record"></div>
+    </section>
+
+    <section class="card">
+      <h3>무기 <em>게임 중 <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd> 로 교체</em></h3>
+      <div id="weapon-list" class="wlist"></div>
+      <p class="note">발칸·레일건·플라즈마는 기수 방향으로 <b>완전한 직선</b>으로 나간다.
+        산탄만 6발이 부채꼴로 퍼진다. 연사하면 총열이 과열되어 잠시 잠긴다.</p>
+    </section>
+
+    <section class="card">
+      <h3>조작</h3>
+      <div class="keys">
+        <div><kbd>마우스</kbd> 커서 쪽으로 선회 · 점선이 현재 무기 사거리</div>
+        <div><kbd>좌클릭</kbd> / <kbd>Space</kbd> 주무기</div>
+        <div><kbd>E</kbd> / <kbd>휠클릭</kbd> 유도 미사일 (조준 시 자동 락온)</div>
+        <div><kbd>Q</kbd> 배럴롤 회피 · <kbd>Shift</kbd> / <kbd>우클릭</kbd> 부스트</div>
+        <div><kbd>W</kbd><kbd>S</kbd> 스로틀 — 느릴수록 더 급하게 돈다</div>
+        <div><kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd><kbd>V</kbd> 퀵챗 · <kbd>⚙</kbd> 설정</div>
+      </div>
+    </section>
+
+    <section class="card install" id="install-card">
+      <h3>앱으로 설치</h3>
+      <p class="note">설치하면 바탕화면·홈 화면 아이콘으로 바로 실행되고, 주소창 없이 전체 화면으로 돕니다.</p>
+      <button id="btn-install">홈 화면에 추가</button>
+      <div class="note" id="install-hint"></div>
+    </section>
+
+    <footer class="foot">
+      Python 표준 라이브러리만으로 구동되는 권위 서버 · 20Hz 델타 스냅샷 · 입력 재시뮬레이션 예측
+    </footer>
+  </div>
+</main>
+
+<script type="module" src="/js/main.js"></script>
+</body>
+</html>

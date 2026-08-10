@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#05070f">
+<title>SKY ARENA — 3D 전투기 시뮬레이터</title>
+<meta name="description" content="브라우저에서 바로 즐기는 실시간 멀티플레이어 3D 공중전">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SKY ARENA">
+<link rel="icon" href="/icons/icon-192.png">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<canvas id="game"></canvas>
+<canvas id="hud-canvas"></canvas>
+<div id="gl-error" class="hidden"></div>
+
+<!-- ── HUD ─────────────────────────────────────────────── -->
+<div id="hud" class="hidden">
+  <div id="topbar">
+    <div class="panel" id="stats">
+      <div class="stat"><span class="lbl">SCORE</span><b id="s-score">0</b></div>
+      <div class="stat"><span class="lbl">KILLS</span><b id="s-kills">0</b></div>
+      <div class="stat"><span class="lbl">PING</span><b id="s-ping">–</b></div>
+      <div class="stat net"><span class="lbl">FPS</span><b id="s-fps">–</b></div>
+      <div class="stat net"><span class="lbl">KB/S</span><b id="s-kbps">–</b></div>
+      <div class="stat"><span class="lbl">HULL</span>
+        <div class="bar"><span id="bar-hp"></span></div>
+      </div>
+    </div>
+    <div class="panel" id="board">
+      <div class="board-title"><span id="room-name">MAIN</span> · 순위</div>
+      <ol id="board-list"></ol>
+    </div>
+  </div>
+
+  <div id="feed"></div>
+  <div id="banner"></div>
+  <div id="lock-hint" class="hidden">화면을 클릭하면 마우스로 조종합니다</div>
+
+  <div id="respawn" class="hidden">
+    <div class="big">격추됨</div>
+    <div class="sub" id="killed-by"></div>
+    <div class="sub"><b id="respawn-t">5</b>초 후 재출격</div>
+  </div>
+
+  <button id="btn-settings" title="설정">⚙</button>
+  <button id="btn-home" title="홈으로">⏻</button>
+  <button id="btn-help" title="도움말 (H)">?</button>
+
+  <div id="touch" class="hidden">
+    <div id="stick"><div id="stick-knob"></div></div>
+    <div id="btns">
+      <button id="btn-level" class="tbtn small">수평</button>
+      <button id="btn-flare" class="tbtn small">플레어</button>
+      <button id="btn-ab" class="tbtn small">AB</button>
+      <button id="btn-missile" class="tbtn ms">미사일</button>
+      <button id="btn-fire" class="tbtn fire">기총</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 도움말 (H) ──────────────────────────────────────── -->
+<div id="help" class="hidden">
+  <div class="menu-card">
+    <h2>조종 요약</h2>
+    <div class="keys">
+      <div><kbd>마우스</kbd> <b>조준</b> — 기수가 조준점을 쫓아옵니다. 마우스로는 <b>절대 기체가 비틀리지 않습니다</b></div>
+      <div><kbd>A</kbd> / <kbd>D</kbd> 좌 / 우 <b>비틀기(롤)</b>. 누르는 동안 무제한, 떼면 그 자세 유지</div>
+      <div><kbd>T</kbd> 날개만 수평으로 (기수·조준은 그대로)</div>
+      <div><kbd>좌클릭</kbd>/<kbd>Space</kbd> 기총 · <kbd>우클릭</kbd>/<kbd>F</kbd> 미사일 · <kbd>C</kbd> 플레어</div>
+      <div><kbd>W</kbd> 부스터 · <kbd>Shift</kbd><kbd>Ctrl</kbd>/<kbd>휠</kbd> 스로틀 · <kbd>X</kbd> 에어브레이크</div>
+      <div><kbd>V</kbd> 시점 · <kbd>1</kbd><kbd>2</kbd> 무장 · <kbd>H</kbd> 이 창</div>
+    </div>
+    <h2 style="margin-top:18px">조준 요령</h2>
+    <div class="keys">
+      <div><b style="color:#7dfba6">실선 십자</b> = 지금 쏘면 탄이 지나가는 지점 (= 조준점)</div>
+      <div><b style="color:#7dfba6">점선 원</b> = 기수가 향한 곳. 조준점과 선으로 이어지면 기수가 아직 뒤처진 것입니다</div>
+      <div><b style="color:#ffcc55">노란 마름모</b> = 맞히려면 겨눠야 할 지점. 십자를 여기 올리면 <b style="color:#ff4d4d">SHOOT</b></div>
+      <div><b style="color:#ff9a3c">주황 X</b> = 조준점이 기총 원뿔(66도) 밖입니다. 탄이 경계로 나갑니다</div>
+      <div>미사일은 <b>상대 꽁무니</b>에서 락온이 잘 걸립니다.</div>
+    </div>
+    <div class="note">아무 곳이나 클릭하면 닫힙니다</div>
+  </div>
+</div>
+
+<!-- ── 설정 ────────────────────────────────────────────── -->
+<div id="settings" class="hidden">
+  <div class="menu-card">
+    <h2>설정</h2>
+    <label class="row"><span>사운드</span><input type="checkbox" id="set-sound"></label>
+    <label class="row"><span>음량</span><input type="range" id="set-vol" min="0" max="1" step="0.05"></label>
+    <label class="row"><span>마우스 감도 <em>cm/360 (800DPI 기준) — 작을수록 빠르다 · <b id="val-cm360"></b></em></span>
+      <input type="range" id="set-cm360" min="5" max="40" step="1"></label>
+    <label class="row"><span>조준점 여유 <em>조준점이 기수에서 벌어질 수 있는 각도 · <b id="val-leash"></b></em></span>
+      <input type="range" id="set-leash" min="25" max="90" step="5"></label>
+    <label class="row"><span>상하 반전 <em>마우스를 내리면 기수가 올라간다</em></span>
+      <input type="checkbox" id="set-invert"></label>
+    <label class="row"><span>시야각(FOV)</span><input type="range" id="set-fov" min="55" max="100" step="1"></label>
+    <label class="row"><span>네트워크 표시</span><input type="checkbox" id="set-net"></label>
+
+    <h2 style="margin-top:20px">그래픽</h2>
+    <label class="row"><span>그래픽 품질 <em>낮음 = 예전 렌더러 그대로</em></span>
+      <select id="set-gfx">
+        <option value="low">낮음</option>
+        <option value="med">보통</option>
+        <option value="high">높음</option>
+      </select></label>
+    <label class="row"><span>3D 해상도 <em>HUD 글자 선명도는 그대로</em></span>
+      <input type="range" id="set-rscale" min="0.6" max="1" step="0.05"></label>
+    <label class="row"><span>자동 품질 조절 <em>프레임이 떨어지면 스스로 낮춘다</em></span>
+      <input type="checkbox" id="set-adaptive"></label>
+    <label class="row"><span>식별 강조 <em>끄면 적기가 실물 크기가 된다</em></span>
+      <input type="checkbox" id="set-idboost"></label>
+    <label class="row"><span>콕핏 표시</span><input type="checkbox" id="set-cockpit"></label>
+    <div class="note" style="margin-top:10px"><kbd>F3</kbd> 패스별 GPU 시간 표시</div>
+    <button id="set-close">닫기</button>
+  </div>
+</div>
+
+<!-- ── 홈 화면 ─────────────────────────────────────────── -->
+<main id="home">
+  <div class="home-inner">
+    <header class="hero">
+      <div class="hero-mark">✈</div>
+      <h1>SKY<span>ARENA</span></h1>
+      <p class="tag">실시간 멀티플레이어 3D 공중전 시뮬레이터</p>
+      <div id="server-stat" class="srv">서버 확인 중…</div>
+    </header>
+
+    <section class="card">
+      <h3>난이도 <em>방에 처음 들어간 사람이 정합니다</em></h3>
+      <div id="diff-pick"></div>
+    </section>
+
+    <section class="card">
+      <h3>기체 선택</h3>
+      <div id="ac-pick"></div>
+    </section>
+
+    <section class="card">
+      <form id="join-form" autocomplete="off">
+        <input id="nick" maxlength="14" placeholder="콜사인 입력" spellcheck="false">
+        <button id="join" type="submit">출격</button>
+      </form>
+      <div class="roomrow">
+        <input id="room" maxlength="16" placeholder="방 이름 (기본 main)" spellcheck="false">
+        <button id="copy-lan" type="button">주소 복사</button>
+      </div>
+      <div id="conn" class="conn">서버 연결 중…</div>
+      <div class="record" id="record"></div>
+    </section>
+
+    <section class="card">
+      <h3>무장</h3>
+      <div id="ac-list" class="wlist"></div>
+    </section>
+
+    <section class="card">
+      <h3>조종</h3>
+      <div class="keys">
+        <div><kbd>마우스</kbd> <b>조준</b> — 화면을 클릭하면 마우스가 잠깁니다. 기수가 조준점을 쫓아옵니다</div>
+        <div><kbd>A</kbd> / <kbd>D</kbd> <b>좌 / 우 비틀기(롤)</b> <em>(누르는 동안 무제한, 떼면 그 자세 유지)</em> · <kbd>T</kbd> 날개만 수평</div>
+        <div><kbd>W</kbd> <b>부스터</b> · <kbd>Shift</kbd><kbd>Ctrl</kbd> 또는 <kbd>휠</kbd> 스로틀 · <kbd>X</kbd> 에어브레이크</div>
+        <div><kbd>좌클릭</kbd>/<kbd>Space</kbd> 기총 · <kbd>우클릭</kbd>/<kbd>F</kbd> 미사일 · <kbd>C</kbd> 플레어</div>
+        <div><kbd>1</kbd><kbd>2</kbd> 무장 전환 · <kbd>V</kbd> 콕핏/외부 시점</div>
+      </div>
+      <p class="note">조준 방향과 기수는 <b>따로 움직입니다</b>. 마우스로 조준점을 옮기면 기수가 그쪽으로
+        끌려가고, 화면의 기울기는 오직 <kbd>A</kbd>·<kbd>D</kbd> 에서만 나옵니다 — 마우스로는
+        아무리 휘저어도 기체가 비틀리지 않습니다. 조준점은 기수에서 일정 각도(설정에서 조절)
+        이상 벌어지지 않고, 계속 밀면 그 리시가 기수를 끌고 무한히 돕니다.
+        IR 미사일은 후방에서 잘 물고, <b>플레어</b>로 속일 수 있습니다.</p>
+    </section>
+
+    <section class="card install" id="install-card">
+      <h3>앱으로 설치</h3>
+      <p class="note">설치하면 바탕화면·홈 화면 아이콘으로 바로 실행되고 전체 화면으로 돕니다.</p>
+      <button id="btn-install">홈 화면에 추가</button>
+      <div class="note" id="install-hint"></div>
+    </section>
+
+    <footer class="foot">
+      Python 표준 라이브러리 서버 · WebGL 직접 렌더링 · 25Hz 델타 스냅샷 · 입력 재시뮬레이션 예측
+    </footer>
+  </div>
+</main>
+
+<script type="module" src="/js/main.js"></script>
+</body>
+</html>
