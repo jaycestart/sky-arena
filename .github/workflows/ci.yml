@@ -13,7 +13,7 @@ on:
   workflow_dispatch:      # Actions 탭에서 손으로도 돌릴 수 있다
 
 jobs:
-  검사원:
+  inspector:
     name: 검사원 — 문법과 죽은 참조
     runs-on: ubuntu-latest
     steps:
@@ -47,7 +47,7 @@ jobs:
           done
           exit $fail
 
-  정합성감사:
+  consistency:
     name: 정합성 감사 — 서버와 클라가 같은 물리인가
     runs-on: ubuntu-latest
     steps:
@@ -87,7 +87,7 @@ jobs:
           sys.exit(0 if ok else 1)
           PY
 
-  테스트파일럿:
+  testpilot:
     name: 테스트 파일럿 — 봇만 60초 전투
     runs-on: ubuntu-latest
     steps:
