@@ -1,3 +1,19 @@
+## 지금 바로 하기
+
+**https://sky-arena-kg67.onrender.com**
+
+브라우저에서 열면 바로 붙는다. 설치할 것도, 내 컴퓨터를 켜 둘 것도 없다.
+
+> Render 무료 플랜이라 15분 놀면 잠든다. 첫 접속이 15~50초 걸리면 깨어나는
+> 중이다(`.github/workflows/keepalive.yml` 이 10분마다 깨우지만 GitHub 크론이
+> 밀릴 때가 있다).
+
+내 컴퓨터에서 돌리려면:
+
+```
+python server/app.py
+```
+
 # ✈ SKY ARENA — 3D 전투기 시뮬레이터
 
 실시간 멀티플레이어 3D 공중전. **의존성 0개** — Python 표준 라이브러리만으로

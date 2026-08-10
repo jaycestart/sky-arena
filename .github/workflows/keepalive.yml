@@ -16,8 +16,11 @@ jobs:
     steps:
       - name: 서버 깨우기
         env:
-          # 배포 주소가 정해지면 이 값만 바꾸면 된다.
-          URL: https://sky-arena.onrender.com/stats.json
+          # 실제 배포 주소. sky-arena.onrender.com 은 **다른 사람이 이미
+          # 쓰고 있다**(인도의 동명 서비스). Render 가 이름 충돌을 피해
+          # 뒤에 -kg67 을 붙였다. 추측한 주소를 그대로 두면 10분마다 남의
+          # 서버를 찌르게 되므로 반드시 실제 주소여야 한다.
+          URL: https://sky-arena-kg67.onrender.com/stats.json
         run: |
           # 잠들어 있었으면 첫 요청이 깨우는 데 오래 걸린다 — 몇 번 다시 찌른다.
           for i in 1 2 3 4; do
