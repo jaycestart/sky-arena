@@ -1,0 +1,31 @@
+# Render 무료 플랜은 15분 놀면 잠든다. 깨우는 데 15~50초 걸리는데, 그동안
+# 접속하면 그냥 안 되는 것처럼 보인다. 10분마다 찔러서 재우지 않는다.
+#
+# GitHub 크론은 부하가 몰리면 몇 분씩 밀린다. 15분 한계에 여유를 두려고
+# 10분 주기로 잡았다(체스앱 keepalive.yml 과 같은 이유·같은 값).
+name: keep-alive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 서버 깨우기
+        env:
+          # 배포 주소가 정해지면 이 값만 바꾸면 된다.
+          URL: https://sky-arena.onrender.com/stats.json
+        run: |
+          # 잠들어 있었으면 첫 요청이 깨우는 데 오래 걸린다 — 몇 번 다시 찌른다.
+          for i in 1 2 3 4; do
+            code=$(curl -s -o /tmp/out -w "%{http_code}" --max-time 70 "$URL" || echo 000)
+            echo "시도 $i → HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "깨어 있음:"; cat /tmp/out; exit 0
+            fi
+            sleep 15
+          done
+          echo "::warning::네 번 찔러도 200 이 안 왔다. 배포 주소나 서비스 상태를 확인할 것."

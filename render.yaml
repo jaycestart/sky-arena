@@ -1,0 +1,20 @@
+# Render 배포 설정(Blueprint). 저장소를 연결하면 이 파일대로 서비스를 만든다.
+#
+# 이 프로젝트는 의존성이 하나도 없다 — 파이썬 표준 라이브러리만 쓰고
+# 빌드 단계도 패키지 매니저도 없다. 그래서 buildCommand 가 비어 있다.
+# requirements.txt 를 만들지 마라. 없는 게 맞다.
+services:
+  - type: web
+    name: sky-arena
+    runtime: python
+    plan: free
+    region: singapore          # 한국에서 가장 가까운 무료 리전
+    branch: main
+    buildCommand: ""           # 빌드할 것이 없다
+    startCommand: python server/app.py
+    # 서버가 PORT 환경변수를 읽어 그 포트에 연다(app.py main()).
+    # Render 는 이 경로가 200 을 주는지로 살아 있는지 판단한다.
+    healthCheckPath: /stats.json
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.6"

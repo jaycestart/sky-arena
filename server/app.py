@@ -430,8 +430,12 @@ def lan_ip() -> str:
 
 async def main():
     ap = argparse.ArgumentParser(description="SKY ARENA 서버")
-    ap.add_argument("--host", default="0.0.0.0")
-    ap.add_argument("--port", type=int, default=8080)
+    # 클라우드(Render 등)는 열어야 할 포트를 환경변수 PORT 로 통보한다.
+    # 그 값을 안 쓰면 컨테이너는 8080 에 열고 플랫폼은 다른 포트를 찔러서,
+    # 배포는 성공했는데 헬스체크만 계속 실패하는 상태가 된다.
+    # 로컬에는 PORT 가 없으니 그대로 8080 이다.
+    ap.add_argument("--host", default=os.environ.get("HOST", "0.0.0.0"))
+    ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8080")))
     args = ap.parse_args()
 
     def quiet(loop, ctx):
