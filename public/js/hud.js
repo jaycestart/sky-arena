@@ -585,8 +585,25 @@ export class Hud {
     ctx.restore();
   }
 
+  /** 화면 오른쪽 위에 현재 버전과 기체 배율을 띄운다.
+   *  이 환경은 화면을 눈으로 볼 수 없어서, '바뀐 게 맞냐' 를 말로 주고받으면
+   *  끝없이 어긋난다. 숫자를 화면에 박아 두면 한 번에 판별된다. */
+  buildBadge(ctx) {
+    const W = this.world;
+    const ms = W.scaleOf ? W.scaleOf(W.myId) : 0;
+    if (!ms) return;
+    ctx.save();
+    ctx.textAlign = 'right';
+    ctx.font = '700 11px ui-monospace, monospace';
+    ctx.fillStyle = 'rgba(125,251,166,.55)';
+    ctx.fillText('SCALE x' + ms.toFixed(2) + '  R' + (W.cfg?.planeR ?? '?'),
+                 this.w - 14, this.h - 16);
+    ctx.restore();
+  }
+
   corners(ctx, s) {
     this.rendererBadge(ctx);
+    this.buildBadge(ctx);
     ctx.save();
     ctx.textAlign = 'left';
     ctx.font = '600 12px ui-monospace, monospace';
