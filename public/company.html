@@ -1,0 +1,208 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>SKY ARENA — AI 회사</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!--
+  AI 회사 현황판. 서버가 필요 없다 — GitHub 공개 API 를 브라우저에서 직접
+  읽는다. 이 저장소가 public 이라 토큰도 필요 없고, 따라서 여기에 비밀이
+  들어갈 일이 없다(파일이 그대로 배포되므로 그게 중요하다).
+-->
+<style>
+  :root {
+    --bg:#0b0f17; --panel:#141a26; --line:#232c3d; --txt:#e6edf7;
+    --dim:#8b97ab; --ok:#3fb950; --warn:#d29922; --bad:#f85149; --acc:#58a6ff;
+  }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--txt);
+         font:14px/1.6 "Malgun Gothic","Segoe UI",system-ui,sans-serif; }
+  header { padding:20px 24px 14px; border-bottom:1px solid var(--line);
+           display:flex; align-items:baseline; gap:14px; flex-wrap:wrap }
+  h1 { margin:0; font-size:19px; letter-spacing:-.3px }
+  .sub { color:var(--dim); font-size:12px }
+  .wrap { padding:20px 24px; max-width:1100px; margin:0 auto }
+  .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)) }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px }
+  .card h2 { margin:0 0 12px; font-size:13px; color:var(--dim); font-weight:700;
+             letter-spacing:.4px; text-transform:uppercase }
+  .row { display:flex; gap:10px; align-items:flex-start; padding:8px 0;
+         border-top:1px solid var(--line) }
+  .row:first-of-type { border-top:0 }
+  .dot { width:9px; height:9px; border-radius:50%; flex:0 0 auto; margin-top:7px }
+  .t { flex:1; min-width:0 }
+  .t a { color:var(--txt); text-decoration:none }
+  .t a:hover { color:var(--acc); text-decoration:underline }
+  .meta { color:var(--dim); font-size:12px }
+  .big { font-size:30px; font-weight:800; letter-spacing:-1px }
+  .stat { display:flex; gap:22px; flex-wrap:wrap }
+  .stat div { min-width:70px }
+  .stat .meta { font-size:11px }
+  .team { display:flex; justify-content:space-between; padding:7px 0;
+          border-top:1px solid var(--line); font-size:13px }
+  .team:first-child { border-top:0 }
+  .today { color:var(--ok); font-weight:700 }
+  .off { color:var(--dim) }
+  .empty { color:var(--dim); padding:10px 0; font-size:13px }
+  a.btn { display:inline-block; margin-top:12px; color:var(--acc);
+          text-decoration:none; font-size:13px }
+  a.btn:hover { text-decoration:underline }
+  footer { padding:0 24px 30px; color:var(--dim); font-size:12px; max-width:1100px; margin:0 auto }
+</style>
+
+<header>
+  <h1>SKY ARENA — AI 회사</h1>
+  <span class="sub" id="clock"></span>
+  <span class="sub" style="margin-left:auto">
+    <a class="btn" href="https://github.com/jaycestart/sky-arena/pulls" target="_blank">PR 보러가기 →</a>
+  </span>
+</header>
+
+<div class="wrap">
+  <div class="grid">
+    <div class="card">
+      <h2>오늘 근무</h2>
+      <div id="teams"></div>
+    </div>
+
+    <div class="card">
+      <h2>결재 대기 (열린 PR)</h2>
+      <div class="big" id="prCount">–</div>
+      <div class="meta">사용자님이 Merge 를 눌러야 게임에 반영됩니다</div>
+      <div id="prs" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <h2>최근 7일 실적</h2>
+      <div class="stat">
+        <div><div class="big" id="merged">–</div><div class="meta">반영됨</div></div>
+        <div><div class="big" id="commits">–</div><div class="meta">커밋</div></div>
+        <div><div class="big" id="ciOk">–</div><div class="meta">검사 통과</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid" style="margin-top:14px">
+    <div class="card" style="grid-column:1/-1">
+      <h2>일일 보고</h2>
+      <div id="reports"></div>
+    </div>
+  </div>
+
+  <div class="grid" style="margin-top:14px">
+    <div class="card">
+      <h2>검사원 (최근 실행)</h2>
+      <div id="runs"></div>
+    </div>
+    <div class="card">
+      <h2>최근 작업</h2>
+      <div id="commitList"></div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  게임 <a class="btn" href="https://sky-arena-kg67.onrender.com" target="_blank">sky-arena-kg67.onrender.com</a>
+  · 저장소 <a class="btn" href="https://github.com/jaycestart/sky-arena" target="_blank">jaycestart/sky-arena</a>
+  · 직원 관리 <a class="btn" href="https://claude.ai/code/routines" target="_blank">routines</a>
+  <div style="margin-top:6px">1분마다 자동 갱신 · GitHub 공개 API 를 직접 읽으므로 서버가 필요 없습니다</div>
+</footer>
+
+<script>
+const REPO = 'jaycestart/sky-arena';
+const API = 'https://api.github.com/repos/' + REPO;
+
+// 부서 근무표. cron 과 같은 값이다(요일: 0=일).
+const TEAMS = [
+  { name: '기획팀 · 주간회의', days: [0] },
+  { name: '그래픽팀',          days: [1, 4] },
+  { name: '게임플레이팀',      days: [2, 5] },
+  { name: '품질팀 QA',         days: [3, 6] },
+  { name: '자율 개발팀',       days: [0,1,2,3,4,5,6] },
+];
+
+const el = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
+  ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+
+function ago(iso) {
+  const m = (Date.now() - new Date(iso)) / 60000;
+  if (m < 60) return Math.max(1, Math.round(m)) + '분 전';
+  if (m < 1440) return Math.round(m / 60) + '시간 전';
+  return Math.round(m / 1440) + '일 전';
+}
+
+function row(color, html, meta) {
+  return `<div class="row"><div class="dot" style="background:${color}"></div>
+    <div class="t">${html}${meta ? `<div class="meta">${meta}</div>` : ''}</div></div>`;
+}
+
+async function get(path) {
+  const r = await fetch(API + path, { headers: { Accept: 'application/vnd.github+json' } });
+  if (!r.ok) throw new Error(path + ' → ' + r.status);
+  return r.json();
+}
+
+function drawTeams() {
+  const d = new Date().getDay();
+  el('teams').innerHTML = TEAMS.map((t) => {
+    const on = t.days.includes(d);
+    return `<div class="team"><span>${t.name}</span>
+      <span class="${on ? 'today' : 'off'}">${on ? '근무' : '휴무'}</span></div>`;
+  }).join('');
+}
+
+async function load() {
+  drawTeams();
+  el('clock').textContent = new Date().toLocaleString('ko-KR');
+
+  // ── 열린 PR ────────────────────────────────────────────────────
+  try {
+    const prs = await get('/pulls?state=open&per_page=20');
+    el('prCount').textContent = prs.length;
+    el('prs').innerHTML = prs.length ? prs.map((p) =>
+      row('#58a6ff', `<a href="${p.html_url}" target="_blank">${esc(p.title)}</a>`,
+          `${esc(p.head.ref)} · ${ago(p.created_at)}`)).join('')
+      : '<div class="empty">열린 PR 이 없습니다</div>';
+  } catch (e) { el('prs').innerHTML = `<div class="empty">불러오기 실패: ${esc(e.message)}</div>`; }
+
+  // ── 최근 7일 ───────────────────────────────────────────────────
+  const since = new Date(Date.now() - 7 * 864e5).toISOString();
+  try {
+    const closed = await get('/pulls?state=closed&per_page=100');
+    el('merged').textContent = closed.filter((p) => p.merged_at && p.merged_at > since).length;
+  } catch { el('merged').textContent = '?'; }
+  try {
+    const cs = await get('/commits?since=' + since + '&per_page=100');
+    el('commits').textContent = cs.length;
+    el('commitList').innerHTML = cs.length ? cs.slice(0, 8).map((c) =>
+      row('#8b97ab',
+          `<a href="${c.html_url}" target="_blank">${esc(c.commit.message.split('\n')[0])}</a>`,
+          ago(c.commit.author.date))).join('')
+      : '<div class="empty">최근 7일 커밋이 없습니다</div>';
+  } catch (e) { el('commitList').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+
+  // ── 검사원 ─────────────────────────────────────────────────────
+  try {
+    const runs = (await get('/actions/runs?per_page=8')).workflow_runs || [];
+    el('ciOk').textContent = runs.filter((r) => r.conclusion === 'success').length
+                             + '/' + runs.length;
+    el('runs').innerHTML = runs.length ? runs.map((r) => {
+      const c = r.conclusion === 'success' ? '#3fb950'
+              : r.conclusion === 'failure' ? '#f85149' : '#d29922';
+      return row(c, `<a href="${r.html_url}" target="_blank">${esc(r.name)}</a>`,
+                 `${esc(r.head_branch)} · ${ago(r.created_at)}`);
+    }).join('') : '<div class="empty">실행 기록이 없습니다</div>';
+  } catch (e) { el('runs').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+
+  // ── 일일 보고 (비서가 이슈로 올린다) ────────────────────────────
+  try {
+    const iss = await get('/issues?labels=daily-report&state=all&per_page=7');
+    el('reports').innerHTML = iss.length ? iss.map((i) =>
+      row('#3fb950', `<a href="${i.html_url}" target="_blank">${esc(i.title)}</a>`,
+          ago(i.created_at))).join('')
+      : '<div class="empty">아직 보고서가 없습니다. 매일 저녁 비서가 올립니다.</div>';
+  } catch (e) { el('reports').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+load();
+setInterval(load, 60000);
+</script>
