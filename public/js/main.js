@@ -18,7 +18,10 @@ const settings = {
   net: localStorage.getItem('skyarena.net') === '1',
   // ── 조준 ────────────────────────────────────────────────────────
   // 마우스 감도는 cm/360 하나로 정의한다(800DPI 기준). 작을수록 빠르다.
-  cm360: +(localStorage.getItem('skyarena.cm360') ?? 12),
+  // cm/360 — 마우스를 몇 cm 움직여야 360도 도는가(800DPI 기준).
+  // **작을수록 예민하다.** 12cm 는 FPS 표준에 가깝지만 이 게임은 기체를
+  // 통째로 돌리는 것이라 답답했다. 5cm 면 손목만 까딱해도 크게 돈다.
+  cm360: +(localStorage.getItem('skyarena.cm360') ?? 5),
   // 조준점이 기수에서 벌어질 수 있는 최대 각도(도). 이게 있어야 상호추종
   // 루프와 데드존이 동시에 사라지고 기총 원뿔에 의미가 생긴다.
   // 리시 = 조준점이 기수에서 벌어질 수 있는 최대 각도.
@@ -54,6 +57,11 @@ if (localStorage.getItem('skyarena.ctrlv') !== '3') {
 // 화각 기본값을 75 → 88 로 올렸다. 이미 75 가 저장돼 있으면 새 기본값이
 // 영영 안 먹으므로 한 번만 갈아끼운다(사용자가 직접 바꿨더라도 이번 한 번은
 // 새 값으로 간다 — 카메라 거리와 짝이라 따로 놀면 화면이 이상해진다).
+if (localStorage.getItem('skyarena.sensv') !== '2') {
+  settings.cm360 = 5;
+  localStorage.setItem('skyarena.cm360', '5');
+  localStorage.setItem('skyarena.sensv', '2');
+}
 if (localStorage.getItem('skyarena.leashv') !== '2') {
   settings.leash = 8;
   localStorage.setItem('skyarena.leash', '8');
@@ -126,7 +134,7 @@ if (!scene.ok) {
 // 꺼내 준 예전 코드가 며칠씩 살아남는다 — 사용자에게는 '그래픽이 갑자기
 // 옛날로 돌아갔다'로 보인다(구형 렌더러 시절 번들이라 실제로 그렇다).
 // 사람이 눈치채고 조치하기를 기대하지 말고 스스로 복구한다.
-export const BUILD = '2026-08-11a';
+export const BUILD = '2026-08-11b';
 
 async function healIfStale() {
   try {
