@@ -10,7 +10,10 @@ import { quat } from './m3d.js';
 const $ = (id) => document.getElementById(id);
 
 const settings = {
-  fov: +(localStorage.getItem('skyarena.fov') ?? 75),
+  // 화각 75 → 88. 카메라를 23m 에서 16m 로 당기면서 기체가 화면을 크게
+  // 차지하게 됐는데, 화각까지 좁으면 주변이 안 보여 교전이 안 된다.
+  // 둘을 같이 움직여야 '크게 보이면서 더 많이 보이는' 상태가 된다.
+  fov: +(localStorage.getItem('skyarena.fov') ?? 88),
   invert: localStorage.getItem('skyarena.invert') === '1',
   net: localStorage.getItem('skyarena.net') === '1',
   // ── 조준 ────────────────────────────────────────────────────────
@@ -43,6 +46,14 @@ if (localStorage.getItem('skyarena.ctrlv') !== '3') {
   localStorage.removeItem('skyarena.sens');
   localStorage.setItem('skyarena.ctrlv', '3');
   ctrlMigrated = true;
+}
+// 화각 기본값을 75 → 88 로 올렸다. 이미 75 가 저장돼 있으면 새 기본값이
+// 영영 안 먹으므로 한 번만 갈아끼운다(사용자가 직접 바꿨더라도 이번 한 번은
+// 새 값으로 간다 — 카메라 거리와 짝이라 따로 놀면 화면이 이상해진다).
+if (localStorage.getItem('skyarena.fovv') !== '2') {
+  settings.fov = 88;
+  localStorage.setItem('skyarena.fov', '88');
+  localStorage.setItem('skyarena.fovv', '2');
 }
 const saveSet = () => {
   localStorage.setItem('skyarena.fov', settings.fov);
