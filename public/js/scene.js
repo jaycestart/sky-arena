@@ -843,9 +843,9 @@ export class Scene {
     // 유지되고 월드에서 같은 거리에 있는 적기만 그만큼 크게 보인다.
     // 사용자가 요구한 "상대는 커 보이고 내 비행기는 비슷해 보이게" 가 이것이다.
     const spd = W.srv ? Math.hypot(W.srv.vx, W.srv.vy, W.srv.vz) : 0;
-    const back = (12.5 + clamp((spd - 400) / 1000, 0, 1) * 4) * ms;
+    const back = (17.5 + clamp((spd - 400) / 1000, 0, 1) * 5) * ms;
     const cu = quat.up(q);
-    return { q, eye: v3.add(me.pos, v3.add(v3.mul(cf, -back), v3.mul(cu, 6.0 * ms))) };
+    return { q, eye: v3.add(me.pos, v3.add(v3.mul(cf, -back), v3.mul(cu, 8.0 * ms))) };
   }
 
   // ── 프레임 ─────────────────────────────────────────────────────

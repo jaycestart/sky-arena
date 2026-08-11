@@ -100,7 +100,7 @@ CFG["tod"] = 13.0
 # 피격 반경(planeR)도 같이 키운다. 안 그러면 눈에 크게 보이는 적을 쐈는데
 # 빗나가는, 제일 나쁜 종류의 불일치가 생긴다.
 # 클라이언트는 welcome 의 classes 에서 mscale 을 읽으므로 자동으로 따라온다.
-JET_SCALE = 2.0
+JET_SCALE = 3.0
 
 # ── span / length / mscale (2026-08-09) ────────────────────────────────────
 # **렌더링 전용이다. Plane.step 도 world._integrate 도 이 값을 읽지 않는다.**
