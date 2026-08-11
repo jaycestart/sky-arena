@@ -151,18 +151,18 @@ const REPO = 'jaycestart/sky-arena';
 const API = 'https://api.github.com/repos/' + REPO;
 
 // 부서 근무표. cron 과 같은 값이다(요일: 0=일).
+// 근무표. 휴무를 없앴다 — 요일을 나눈 건 파일 충돌 때문이었는데,
+// 부서별 담당 영역이 이미 갈려 있어서 같은 날 돌아도 부딪히지 않는다.
+// 대신 시각을 20분씩 어긋내 한꺼번에 몰리지 않게 했다.
+const EVERYDAY = [0,1,2,3,4,5,6];
 const TEAMS = [
-  { name: '기획팀 · 주간회의', days: [0],    staff: 5 },
-  { name: '그래픽팀',          days: [1, 4], staff: 5 },
-  { name: '게임플레이팀',      days: [2, 5], staff: 5 },
-  { name: '품질팀 QA',         days: [3, 6], staff: 6 },
-  { name: '성능팀',            days: [1, 5], staff: 5 },
-  { name: '밸런스팀',          days: [2, 6], staff: 5 },
-  { name: '사운드팀',          days: [4],    staff: 4 },
-  { name: 'UI/UX팀',           days: [3],    staff: 4 },
-  { name: '인프라·안정성팀',   days: [1, 4], staff: 5 },
-  { name: '자율 개발팀',       days: [0,1,2,3,4,5,6], staff: 4 },
-  { name: '비서 · 일일보고',   days: [0,1,2,3,4,5,6], staff: 1 },
+  { name: '그래픽팀',          days: EVERYDAY, staff: 5 },
+  { name: '게임플레이팀',      days: EVERYDAY, staff: 5 },
+  { name: '품질팀 QA',         days: EVERYDAY, staff: 6 },
+  { name: '성능팀',            days: EVERYDAY, staff: 5 },
+  { name: '자율 개발팀',       days: EVERYDAY, staff: 4 },
+  { name: '비서 · 일일보고',   days: EVERYDAY, staff: 1 },
+  { name: '기획팀 · 주간회의', days: [0],      staff: 5 },
 ];
 
 const el = (id) => document.getElementById(id);
