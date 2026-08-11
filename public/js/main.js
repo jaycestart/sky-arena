@@ -21,7 +21,11 @@ const settings = {
   cm360: +(localStorage.getItem('skyarena.cm360') ?? 12),
   // 조준점이 기수에서 벌어질 수 있는 최대 각도(도). 이게 있어야 상호추종
   // 루프와 데드존이 동시에 사라지고 기총 원뿔에 의미가 생긴다.
-  leash: +(localStorage.getItem('skyarena.leash') ?? 55),
+  // 리시 = 조준점이 기수에서 벌어질 수 있는 최대 각도.
+  // 55도면 마우스를 휙 돌렸을 때 조준점만 먼저 가고 기체가 뒤따라온다 —
+  // 사용자가 "따라오는 게 아니라 같이 움직이게" 라고 한 게 이것이다.
+  // 8도로 좁히면 기수가 조준점에 붙어 함께 돈다.
+  leash: +(localStorage.getItem('skyarena.leash') ?? 8),
   // ── 그래픽 ──────────────────────────────────────────────────────
   // 'low' 는 이번 그래픽 작업 전 파이프라인 그대로다(회귀 안전판).
   gfx: localStorage.getItem('skyarena.gfx') || 'med',
@@ -50,6 +54,11 @@ if (localStorage.getItem('skyarena.ctrlv') !== '3') {
 // 화각 기본값을 75 → 88 로 올렸다. 이미 75 가 저장돼 있으면 새 기본값이
 // 영영 안 먹으므로 한 번만 갈아끼운다(사용자가 직접 바꿨더라도 이번 한 번은
 // 새 값으로 간다 — 카메라 거리와 짝이라 따로 놀면 화면이 이상해진다).
+if (localStorage.getItem('skyarena.leashv') !== '2') {
+  settings.leash = 8;
+  localStorage.setItem('skyarena.leash', '8');
+  localStorage.setItem('skyarena.leashv', '2');
+}
 if (localStorage.getItem('skyarena.fovv') !== '2') {
   settings.fov = 88;
   localStorage.setItem('skyarena.fov', '88');
@@ -117,7 +126,7 @@ if (!scene.ok) {
 // 꺼내 준 예전 코드가 며칠씩 살아남는다 — 사용자에게는 '그래픽이 갑자기
 // 옛날로 돌아갔다'로 보인다(구형 렌더러 시절 번들이라 실제로 그렇다).
 // 사람이 눈치채고 조치하기를 기대하지 말고 스스로 복구한다.
-export const BUILD = '2026-08-09a';
+export const BUILD = '2026-08-11a';
 
 async function healIfStale() {
   try {
