@@ -982,7 +982,11 @@ export class Scene {
     const spd = W.srv ? W.srv.sp : 0;
     // FOV 부스트와 같은 곡선을 쓴다 — 두 효과가 따로 놀지 않는다
     const sBlur = clamp((spd - 180) / 9, 0, 26) / 26;
-    const ang = clamp((Math.abs(this._lookRate || 0)) * 0.35, 0, 1);
+    // 회전 블러는 뺐다. 화면을 돌릴 때마다 흐려져서 **적을 놓친다** —
+    // 조준하려고 돌리는 건데 돌리는 동안 안 보이면 게임이 안 된다.
+    // 속도 블러(sBlur)만 남긴다. 그건 직진 중에만 걸려서 조준을 방해하지
+    // 않고 속도감에만 기여한다.
+    const ang = 0;
     this.post.autoExp = true;
     return {
       exposure: BASE_EXPOSURE,
