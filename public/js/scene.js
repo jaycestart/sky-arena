@@ -129,12 +129,17 @@ const PRESETS = {
 // 렌더러와 같은 수준'까지 열어 둬야 어떤 기기에서든 결국 부드러워진다.
 // 비싼 순서대로 뺀다: 픽셀 수 → 구름 → 블룸 해상도 → 물 → 지형 디테일
 // → 파티클 → 후처리 전체.
+// 강등 순서가 곧 '무엇을 먼저 포기하는가'다. 예전에는 **해상도부터** 깎았다.
+// 그런데 해상도는 사용자가 가장 먼저 알아채는 항목이다 — 기체를 돌리면
+// 지형이 왈칵 들어와 한순간 프레임이 떨어지고, 그 순간 해상도가 내려가
+// **"돌릴 때 흐려진다"** 가 된다. 회전은 게임의 기본 동작이라 이게 상시로
+// 걸린다. 그래서 눈에 덜 띄는 것부터 끄고 해상도는 마지막까지 지킨다.
 const DEGRADE = [
   { renderScale: 1.00 },
-  { renderScale: 0.85 },
-  { renderScale: 0.70 },
-  { renderScale: 0.70, clouds: false },
-  { renderScale: 0.70, clouds: false, bloomHalf: true },
+  { renderScale: 1.00, bloomHalf: true },
+  { renderScale: 1.00, bloomHalf: true, clouds: false },
+  { renderScale: 1.00, bloomHalf: true, clouds: false, detail: 1 },
+  { renderScale: 0.85, bloomHalf: true, clouds: false, detail: 1 },
   { renderScale: 0.65, clouds: false, bloomHalf: true, water: false },
   { renderScale: 0.60, clouds: false, bloomHalf: true, water: false, detail: 1 },
   { renderScale: 0.60, clouds: false, bloomHalf: true, water: false, detail: 0,
