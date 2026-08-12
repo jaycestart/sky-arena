@@ -47,30 +47,77 @@ def give_up(reason):
     sys.exit(0)
 
 
-def ask(prompt):
-    """무료 열쇠로 모델을 부른다. 응답 본문(문자열)을 돌려준다."""
+# Groq 은 모델 이름을 자주 갈아치운다. 하나가 사라져도 개발자가 멈추지
+# 않도록 여러 개를 순서대로 시도한다. 앞의 것일수록 코드를 잘 쓴다.
+GROQ_MODELS = [
+    "llama-3.3-70b-versatile",
+    "moonshotai/kimi-k2-instruct",
+    "qwen/qwen3-32b",
+    "llama-3.1-8b-instant",
+]
+
+
+def _post(url, body, headers, timeout=180):
+    req = urllib.request.Request(url, json.dumps(body).encode(), headers)
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.load(r)
+
+
+def ask(prompt, max_tokens=8192):
+    """무료 열쇠로 모델을 부른다. 응답 본문(문자열)을 돌려준다.
+
+    어느 열쇠가 왜 실패했는지 반드시 남긴다. 조용히 실패하면 사람이
+    열쇠를 잘못 넣은 것인지 모델이 죽은 것인지 알 수 없다."""
     gem, groq = os.environ.get("GEMINI_API_KEY"), os.environ.get("GROQ_API_KEY")
+    errs = []
+
     if gem:
-        url = ("https://generativelanguage.googleapis.com/v1beta/models/"
-               "gemini-2.0-flash:generateContent?key=" + gem)
-        body = {"contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 8192}}
-        req = urllib.request.Request(url, json.dumps(body).encode(),
-                                     {"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=180) as r:
-            d = json.load(r)
-        return d["candidates"][0]["content"]["parts"][0]["text"]
+        try:
+            d = _post("https://generativelanguage.googleapis.com/v1beta/models/"
+                      "gemini-2.0-flash:generateContent?key=" + gem,
+                      {"contents": [{"parts": [{"text": prompt}]}],
+                       "generationConfig": {"temperature": 0.2,
+                                            "maxOutputTokens": max_tokens}},
+                      {"Content-Type": "application/json"})
+            return d["candidates"][0]["content"]["parts"][0]["text"]
+        except Exception as e:
+            errs.append(f"구글: {_why(e)}")
+
     if groq:
-        req = urllib.request.Request(
-            "https://api.groq.com/openai/v1/chat/completions",
-            json.dumps({"model": "llama-3.3-70b-versatile",
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.2, "max_tokens": 8192}).encode(),
-            {"Content-Type": "application/json", "Authorization": "Bearer " + groq})
-        with urllib.request.urlopen(req, timeout=180) as r:
-            d = json.load(r)
-        return d["choices"][0]["message"]["content"]
-    give_up("열쇠가 없어 모델을 부르지 못했습니다.")
+        for model in GROQ_MODELS:
+            try:
+                d = _post("https://api.groq.com/openai/v1/chat/completions",
+                          {"model": model,
+                           "messages": [{"role": "user", "content": prompt}],
+                           "temperature": 0.2, "max_tokens": max_tokens},
+                          {"Content-Type": "application/json",
+                           "Authorization": "Bearer " + groq})
+                print(f"[모델] Groq {model}")
+                return d["choices"][0]["message"]["content"]
+            except Exception as e:
+                errs.append(f"Groq {model}: {_why(e)}")
+
+    if not gem and not groq:
+        give_up("열쇠가 없습니다. 저장소 비밀값에 GEMINI_API_KEY 나 "
+                "GROQ_API_KEY 를 넣어주세요.")
+    give_up("열쇠는 있는데 모델을 부르지 못했습니다.\n\n" + "\n".join(errs))
+
+
+def _why(e):
+    """예외에서 사람이 읽을 이유를 뽑는다."""
+    if isinstance(e, urllib.error.HTTPError):
+        try:
+            body = e.read().decode()[:200]
+        except Exception:
+            body = ""
+        if e.code == 401:
+            return "열쇠가 거부됐습니다(401). 값이 잘못됐거나 만료됐습니다."
+        if e.code == 404:
+            return "그 모델이 없습니다(404)."
+        if e.code == 429:
+            return "무료 한도를 다 썼습니다(429). 잠시 뒤 다시 됩니다."
+        return f"HTTP {e.code} {body}"
+    return f"{type(e).__name__}: {e}"
 
 
 def read(rel):
