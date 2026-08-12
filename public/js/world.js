@@ -27,7 +27,6 @@ export class World {
     this.roster = new Map();
     this.buf = [];
     this.known = new Map();
-    this.bullets = [];
     this.missiles = [];
     this.flares = [];
     this.radar = [];
@@ -118,7 +117,6 @@ export class World {
     this.buf.push({ t: now, planes });
     if (this.buf.length > 20) this.buf.shift();
 
-    this.bullets = s.b.map(([x, y, z, vx, vy, vz]) => ({ pos: [x, y, z], vel: [vx, vy, vz] }));
     this.missiles = (s.m || []).map(([id, x, y, z, vx, vy, vz, o]) => ({
       id, pos: [x, y, z], vel: [vx, vy, vz], owner: o, q: lookQ(v3.norm([vx, vy, vz])),
     }));
@@ -221,10 +219,6 @@ export class World {
     }
 
     // 발사체는 스냅샷 사이를 로컬에서 이어 굴린다
-    for (const b of this.bullets) {
-      b.pos = v3.add(b.pos, v3.mul(b.vel, dt));
-      b.vel[1] -= G * dt;
-    }
     for (const m of this.missiles) m.pos = v3.add(m.pos, v3.mul(m.vel, dt));
     for (const f of this.flares) {
       f.pos = v3.add(f.pos, [0, -18 * dt, 0]);

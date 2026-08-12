@@ -620,7 +620,7 @@ export class Hud {
     ctx.textAlign = 'right';
     const rx = this.w - 26;
     const arm = [
-      ['GUN', s.am],
+      ['RKT', s.am],
       ['MSL', s.ms],
       ['FLR', s.fla],
     ];
@@ -631,7 +631,7 @@ export class Hud {
     // 무장 선택 + 미사일 발사 가능 여부
     ctx.fillStyle = GREEN;
     ctx.font = '700 13px ui-monospace, monospace';
-    ctx.fillText(s.w === 0 ? '[ GUN ]' : '[ AIM-9 ]', rx, y0 - 22);
+    ctx.fillText(s.w === 0 ? '[ ROCKET ]' : '[ AIM-9 ]', rx, y0 - 22);
     ctx.fillStyle = s.lk ? '#3dff8a' : AMBER;
     ctx.font = '800 12px ui-monospace, monospace';
     ctx.fillText(s.lk ? '● 미사일 발사 가능' : '락온 없음 (자동추적)', rx, y0 - 40);

@@ -29,7 +29,6 @@ CFG = {
     "gLimit": 30.0,             # 구조 한계 G (아케이드 — 시선에 바로 붙도록)
     "gLOC": 8.0,                # 이 이상 지속되면 시야가 좁아진다(블랙아웃)
     "planeR": 9.0,              # 피격 반경(m)
-    "gunHitR": 115.0,            # 기총 판정은 넉넉하게 — 맞히는 재미 우선
     "hpMax": 100.0,
     "respawn": 2.6,             # 격추 후 재출격 대기
     "wreckDrag": 0.055,         # 잔해 낙하 저항(작을수록 빨리 떨어진다)
@@ -176,7 +175,6 @@ WEAPONS = [
 ]
 WEAPON_COUNT = len(WEAPONS)
 ROCKET, MISSILE = 0, 1
-GUN = ROCKET          # 옛 이름 — 스냅샷/봇 코드가 아직 참조한다
 
 COLORS = ["#7fd4ff", "#ff8f8f", "#9dff9d", "#ffd98a", "#c4a6ff", "#ffb37a",
           "#7cf5df", "#ff9ec4", "#a8c4ff", "#e8ff8a"]
@@ -261,7 +259,7 @@ class Plane:
         self.want_fire = False
         self.want_missile = False
         self.want_flare = False
-        self.weapon = GUN
+        self.weapon = ROCKET
         self.aim = None          # 조준 방향(월드 단위벡터). 없으면 기수 방향.
         self.seq = 0
 
@@ -435,7 +433,6 @@ class World:
         self.room = room
         self.difficulty = difficulty if difficulty in DIFFICULTY else DEFAULT_DIFFICULTY
         self.planes = {}
-        self.bullets = []
         self.missiles = []
         self.flares = []
         self.time = 0.0
@@ -493,7 +490,6 @@ class World:
             if p.want_flare and p.flare_cd <= 0 and p.flares > 0:
                 self._drop_flare(p)
 
-        self._step_bullets(dt)
         self._step_missiles(dt)
         self._step_flares(dt)
         self._fill_with_bots()
@@ -604,40 +600,6 @@ class World:
             pos = v_add(p.pos, v_add(v_mul(u, -0.55 * ms), v_mul(r, 0.9 * ms * s)))
             vel = v_add(tuple(p.vel), v_add(v_mul(u, -12.0), v_mul(r, 9.0 * s)))
             self.flares.append(Flare(pos, vel, p.id))
-
-    def _step_bullets(self, dt):
-        rho_k = 0.00016          # 단순 탄도 감속 계수
-        hit_r = CFG["planeR"]
-        alive = []
-        for b in self.bullets:
-            b.life -= dt
-            if b.life <= 0:
-                continue
-            sp = v_len(tuple(b.vel))
-            drag = rho_k * sp * air_density(b.pos[1]) / 1.225
-            b.vel[0] -= b.vel[0] * drag * dt
-            b.vel[1] -= b.vel[1] * drag * dt + G * dt
-            b.vel[2] -= b.vel[2] * drag * dt
-            a = tuple(b.pos)
-            b.pos[0] += b.vel[0] * dt
-            b.pos[1] += b.vel[1] * dt
-            b.pos[2] += b.vel[2] * dt
-            # 고고도 탄은 지형을 평가할 필요조차 없다 — 50Hz x 약 170발이라
-            # 이 조기 탈출만으로 오히려 비용이 줄어든다.
-            if b.pos[1] > TERRAIN_MAX:
-                pass
-            elif b.pos[1] < ground_h(b.pos[0], b.pos[2]):
-                # 착탄 이펙트를 이벤트로 보내지 않는다 — 초당 수백 발이라
-                # 이벤트 채널이 막힌다. 기총 착탄은 클라가 스냅샷의 탄이
-                # 사라진 것으로 알아서 처리한다.
-                continue
-            hit = self._sweep(a, tuple(b.pos), CFG["gunHitR"], b.owner)
-            if hit is None:
-                alive.append(b)
-                continue
-            victim, hp = hit
-            self._apply_hit(victim, b.owner, b.dmg, hp)
-        self.bullets = alive
 
     def _step_missiles(self, dt):
         alive = []
@@ -1069,9 +1031,6 @@ class World:
             d = v_sub(tuple(o.pos), vp)
             return v_dot(d, d) <= r2
 
-        # 기총이 사라져 총알은 더 이상 생기지 않는다. 프로토콜의 'b' 키는
-        # 클라이언트가 그대로 읽으므로 빈 배열로 유지한다.
-        bullets = []
         # 미사일은 수가 폭발적으로 늘어나는 유일한 항목이다. 24대가 한꺼번에
         # 연사하면 시야 안에만 450발이 잡혀 스냅샷이 17KB까지 부푼다. 가까운
         # 것부터 상한만큼만 보낸다. 좌표를 1m 단위로 줄인 것도 같은 이유다 —
@@ -1088,7 +1047,7 @@ class World:
                    round(f.life, 1)] for f in self.flares if near(f)]
 
         snap = {"t": "s", "k": self.tick, "p": planes, "rd": radar,
-                "b": bullets, "m": missiles, "fl": flares}
+                "m": missiles, "fl": flares}
         if viewer:
             v = viewer
             spd = v_len(tuple(v.vel))

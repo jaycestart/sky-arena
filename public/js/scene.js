@@ -1621,17 +1621,6 @@ export class Scene {
       }
     }
 
-    // 예광탄 — 서버가 tracer_n 마다 하나씩만 내려주므로 간격이 현실적이다.
-    // 시뮬레이션하지 않고 스냅샷 위치를 그대로 늘린 빌보드로 그린다.
-    for (const b of W.bullets) {
-      const st = v3.mul(b.vel, 0.016);
-      const dist = v3.len(v3.sub(b.pos, this.camEye));
-      // 화면 최소 폭 1.5px 보장
-      const minW = dist * 1.5 * 2 * Math.tan((this.fov || 75) * Math.PI / 360) / this.h;
-      this.fx.transient('add', b.pos[0], b.pos[1], b.pos[2],
-                        Math.max(0.5, minW), T_STREAK, [7.0, 4.2, 1.4], 1.0,
-                        st[0], st[1], st[2]);
-    }
 
     // 폭발/명중 — world.booms 에서 새로 생긴 것만 소비한다
     const fresh = [];
@@ -1830,12 +1819,6 @@ export class Scene {
         push(e.x + Math.cos(a) * rr, e.y + Math.sin(a * 1.7) * rr * 0.6,
              e.z + Math.sin(a) * rr, c, 0);
       }
-    }
-    const tracer = [1.0, 0.85, 0.45];
-    for (const b of W.bullets) {
-      const tail = v3.sub(b.pos, v3.mul(b.vel, 0.02));
-      push(b.pos[0], b.pos[1], b.pos[2], tracer, 1);
-      push(tail[0], tail[1], tail[2], tracer, 0.15);
     }
     if (!n || !pr) return;
     this.useProg(pr);

@@ -100,7 +100,7 @@
     <div class="card">
       <h2>결재 대기 (열린 PR)</h2>
       <div class="big" id="prCount">–</div>
-      <div class="meta">Merge 를 눌러야 게임에 반영됩니다</div>
+      <div class="meta">직원들은 결재 없이 스스로 반영합니다</div>
       <div style="margin-top:12px" id="prs"></div>
     </div>
   </div>
@@ -116,11 +116,15 @@
 <footer>
   게임 <a class="btn" href="https://sky-arena-kg67.onrender.com" target="_blank">sky-arena-kg67.onrender.com</a>
   · 저장소 <a class="btn" href="https://github.com/jaycestart/sky-arena" target="_blank">jaycestart/sky-arena</a>
-  <div style="margin-top:6px">5분마다 자동 갱신 · GitHub 공개 API 를 직접 읽으므로 서버가 필요 없습니다</div>
+  <div style="margin-top:6px" id="cacheNote">불러오는 중…</div>
 </footer>
 
 <script>
-const API = 'https://api.github.com/repos/jaycestart/sky-arena';
+// 자료는 우리 서버가 GitHub 에서 받아 10분간 들고 있는 것을 읽는다.
+// 브라우저가 GitHub 를 직접 부르면 IP 하나당 시간당 60회 제한에 걸린다 —
+// 현황판은 한 번 열 때 4회를 쓰므로 창 하나만 켜둬도 한 시간이면 바닥나고
+// 실제로 화면 전체가 "GitHub 403" 만 띄웠다. 서버가 받아 나눠주면 보는
+// 사람이 몇 명이든 시간당 24회면 끝난다.
 const el = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
   ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
@@ -135,78 +139,69 @@ function row(color, html, meta) {
   return `<div class="row"><div class="dot" style="background:${color}"></div>
     <div class="t">${html}${meta ? `<div class="meta">${meta}</div>` : ''}</div></div>`;
 }
-async function get(path) {
-  const r = await fetch(API + path, { headers: { Accept: 'application/vnd.github+json' } });
-  if (!r.ok) throw new Error('GitHub ' + r.status);
-  return r.json();
-}
 
-// 워크플로 이름 → 사람이 읽는 직함. 여기 없는 이름이 나와도 그대로 보여준다.
 const TITLES = {
   '검증': '검사원 3명 (문법·정합성·봇 전투)',
   '측정원': '측정원 (게임 상태 실측)',
   '버그 사냥꾼': '버그 사냥꾼 (극단 상황 점검)',
   '실력 균형 검사원': '실력 균형 검사원 (봇 등급별 전적)',
-  '정비공': '정비공 (스스로 고치고 바로 반영)',
   '성능 감시원': '성능 감시원 (서버 부담 측정)',
+  '정비공': '정비공 (스스로 고치고 바로 반영)',
+  '개발자': '개발자 (코드를 새로 써서 고침)',
   '비서': '비서 (하루 한 번 보고서)',
-  'keep-alive': null,      // 인프라 — 직원 목록에서 뺀다
-  '일일보고': null,        // 철거된 옛 워크플로 잔재
 };
 
 async function load() {
   el('clock').textContent = new Date().toLocaleString('ko-KR');
-
-  // 실제 실행 기록에서 직원 목록을 만든다 (요청 1회)
+  let d;
   try {
-    const runs = (await get('/actions/runs?per_page=40')).workflow_runs || [];
-    const latest = new Map();
-    for (const r of runs) if (!latest.has(r.name)) latest.set(r.name, r);
-    const staff = [...latest.values()]
-      .filter((r) => TITLES[r.name] !== null)
-      .sort((a, b) => (b.created_at > a.created_at ? 1 : -1));
-    el('staffCount').textContent = staff.length + '팀';
-    el('staff').innerHTML = staff.length ? staff.map((r) => {
-      const c = r.status !== 'completed' ? '#fbbf24'
-              : r.conclusion === 'success' ? '#4ade80' : '#fb7185';
-      const state = r.status !== 'completed' ? '근무 중'
-                  : r.conclusion === 'success' ? '정상' : '실패';
-      return row(c, `<a href="${r.html_url}" target="_blank">${esc(TITLES[r.name] || r.name)}</a>`,
-                 `${state} · ${ago(r.created_at)}`);
-    }).join('') : '<div class="empty">아직 실행 기록이 없습니다</div>';
-  } catch (e) { el('staff').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+    const r = await fetch('/company.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('서버 응답 ' + r.status);
+    d = await r.json();
+  } catch (e) {
+    for (const id of ['staff', 'issues', 'prs', 'commits'])
+      el(id).innerHTML = `<div class="empty">${esc(e.message)}</div>`;
+    return;
+  }
 
-  // 이슈 = 보고서·경고 (요청 1회)
-  try {
-    const iss = (await get('/issues?state=open&per_page=15'))
-      .filter((i) => !i.pull_request);
-    el('issueCount').textContent = iss.length;
-    el('issues').innerHTML = iss.length ? iss.map((i) => {
-      const lb = (i.labels || []).map((l) => l.name);
-      const c = lb.includes('bughunt') ? '#fb7185'
-              : lb.includes('perf') || lb.includes('balance') ? '#fbbf24' : '#4ade80';
-      return row(c, `<a href="${i.html_url}" target="_blank">${esc(i.title)}</a>`, ago(i.created_at));
-    }).join('') : '<div class="empty">열린 보고서가 없습니다. 매일 21:40 비서가 올립니다.</div>';
-  } catch (e) { el('issues').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  if (d.error) {
+    for (const id of ['staff', 'issues', 'prs', 'commits'])
+      el(id).innerHTML = `<div class="empty">${esc(d.error)}</div>`;
+    return;
+  }
 
-  // 열린 PR (요청 1회)
-  try {
-    const prs = await get('/pulls?state=open&per_page=10');
-    el('prCount').textContent = prs.length;
-    el('prs').innerHTML = prs.length ? prs.map((p) =>
-      row('#7dd3fc', `<a href="${p.html_url}" target="_blank">${esc(p.title)}</a>`, ago(p.created_at)))
-      .join('') : '<div class="empty">없습니다</div>';
-  } catch (e) { el('prs').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  el('staffCount').textContent = d.staff.length + '명';
+  el('staff').innerHTML = d.staff.length ? d.staff.map((r) => {
+    const c = r.status !== 'completed' ? '#fbbf24'
+            : r.conclusion === 'success' ? '#4ade80' : '#fb7185';
+    const st = r.status !== 'completed' ? '근무 중'
+             : r.conclusion === 'success' ? '정상'
+             : r.conclusion === 'cancelled' ? '취소됨' : '실패';
+    return row(c, `<a href="${r.url}" target="_blank">${esc(TITLES[r.name] || r.name)}</a>`,
+               `${st} · ${ago(r.at)}`);
+  }).join('') : '<div class="empty">아직 근무 기록이 없습니다</div>';
 
-  // 최근 커밋 (요청 1회)
-  try {
-    const cs = await get('/commits?per_page=8');
-    el('commits').innerHTML = cs.map((c) =>
-      row('#93a3bd', `<a href="${c.html_url}" target="_blank">${esc(c.commit.message.split('\n')[0])}</a>`,
-          ago(c.commit.author.date))).join('');
-  } catch (e) { el('commits').innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+  el('issueCount').textContent = d.issues.length;
+  el('issues').innerHTML = d.issues.length ? d.issues.map((i) => {
+    const c = i.labels.includes('bughunt') || i.labels.includes('정비불가') ? '#fb7185'
+            : i.labels.includes('perf') || i.labels.includes('balance') ? '#fbbf24' : '#4ade80';
+    return row(c, `<a href="${i.url}" target="_blank">${esc(i.title)}</a>`, ago(i.at));
+  }).join('') : '<div class="empty">열린 보고서가 없습니다</div>';
+
+  el('prCount').textContent = d.prs.length;
+  el('prs').innerHTML = d.prs.length ? d.prs.map((p) =>
+    row('#7dd3fc', `<a href="${p.url}" target="_blank">${esc(p.title)}</a>`, ago(p.at))
+  ).join('') : '<div class="empty">없습니다 — 직원들이 결재 없이 바로 반영합니다</div>';
+
+  el('commits').innerHTML = d.commits.map((c) =>
+    row('#93a3bd', `<a href="${c.url}" target="_blank">${esc(c.msg)}</a>`, ago(c.at))
+  ).join('');
+
+  const note = d.stale ? `GitHub 응답이 없어 ${d.cached}초 전 자료를 보여줍니다`
+             : d.cached ? `${Math.round(d.cached / 60)}분 전 받아둔 자료입니다` : '방금 받았습니다';
+  el('cacheNote').textContent = note;
 }
 
 load();
-setInterval(load, 300000);   // 5분 — 비로그인 API 한도(시간당 60회) 안
+setInterval(load, 120000);
 </script>
