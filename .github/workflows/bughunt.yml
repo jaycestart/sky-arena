@@ -1,0 +1,103 @@
+# 버그 사냥꾼 — 극단 상황을 돌려 게임이 깨지는 지점을 찾는다.
+#
+# 노리는 것은 전부 이 프로젝트에서 실제로 났던 부류다: 수직 통과 특이점,
+# NaN 전파, 지면 근처 폭주, 미사일 누적, 정반대 조준의 원뿔 절단.
+# 이슈는 **발견이 있을 때만** 올린다. 평소에는 작업 요약에만 남긴다.
+name: 버그 사냥꾼
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "10 12 * * *"     # 21:10 KST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  hunt:
+    name: 극단 상황 사냥
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: 극단 시나리오 4종
+        run: |
+          cd server
+          python - <<'PY'
+          import math, random, time
+          random.seed(3)
+          import game
+          from flightmath import q_hpb
+
+          def fin(*vals):
+              return all(isinstance(v,(int,float)) and math.isfinite(v) for v in vals)
+
+          bad = []
+
+          # 1) 수직 통과 + 전축 극단 입력 40초
+          p = game.Plane(1, "T", "#fff", "falcon")
+          p.pos=[0.0,8000.0,0.0]; p.vel=[0.0,0.0,450.0]; p.throttle=1.0
+          for i in range(2000):
+              p.c_pitch=1.0; p.c_yaw=math.sin(i/7); p.c_roll=math.sin(i/11)
+              p.step(1/50, [])
+              if not fin(*p.pos,*p.vel,p.hdg,p.pit,p.bnk,*p.q):
+                  bad.append(f"수직 극단 입력 {i}틱에서 NaN/inf 발생"); break
+
+          # 2) 지면 직전 급강하
+          p2 = game.Plane(2,"T","#fff","flanker")
+          p2.pos=[0.0,400.0,0.0]; p2.vel=[0.0,-200.0,300.0]; p2.pit=-1.2
+          p2.q=q_hpb(p2.hdg,p2.pit,p2.bnk)
+          for i in range(500):
+              p2.c_pitch=-1.0; p2.step(1/50,[])
+              if not fin(*p2.pos,*p2.vel):
+                  bad.append(f"지면 급강하 {i}틱에서 NaN"); break
+
+          # 3) 만원 방(24기) + 전원 연사 30초
+          w = game.World("stress")
+          for k in range(18): w.add_player(f"P{k}", ("falcon","eagle","flanker")[k%3])
+          t0=time.perf_counter(); peak=0
+          for i in range(1500):
+              for pl in w.planes.values(): pl.want_fire=True; pl.want_missile=True
+              w.step(1/50); w.events.clear()
+              peak=max(peak,len(w.missiles))
+              if len(w.missiles) > 4000:
+                  bad.append(f"미사일 누적 폭주 {len(w.missiles)}발 — 수명·명중 정리가 샌다"); break
+          for pl in w.planes.values():
+              if not fin(*pl.pos,*pl.vel,pl.hdg,pl.pit,pl.bnk):
+                  bad.append(f"만원 스트레스 후 {pl.name} 상태 NaN"); break
+          for m in w.missiles:
+              if not fin(*m.pos,*m.vel): bad.append("미사일 좌표 NaN"); break
+          wall=time.perf_counter()-t0
+
+          # 4) 정반대 조준 — 원뿔 절단이 NaN 없이 도는가
+          p3 = game.Plane(9,"T","#fff","falcon"); p3.pos=[0,5000,0]; p3.vel=[0,0,500]
+          p3.aim=(0.0,0.0,-1.0)
+          d = w.aim_dir(p3)
+          if not fin(*d): bad.append("정반대 조준에서 aim_dir 이 NaN")
+
+          L=["## 버그 사냥 결과","",
+             "| 시나리오 | 결과 |","|---|---|",
+             "| 수직 통과 + 전축 극단 (40초) | " + ("문제" if any('수직' in b for b in bad) else "통과") + " |",
+             "| 지면 직전 급강하 | " + ("문제" if any('급강하' in b for b in bad) else "통과") + " |",
+             f"| 만원 방 24기 연사 30초 | 최대 미사일 {peak}발 · 시뮬 {wall:.1f}초 |",
+             "| 정반대 조준 원뿔 | " + ("문제" if any('조준' in b for b in bad) else "통과") + " |",
+             "","## 발견",""]
+          L += [f"- 🐛 {b}" for b in bad] if bad else ["없음. 네 시나리오 모두 깨지지 않았다."]
+          body="\n".join(L); print(body)
+          open("/tmp/report.md","w",encoding="utf-8").write(body)
+          open("/tmp/anomalies","w").write(str(len(bad)))
+          PY
+          cat /tmp/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: 발견이 있을 때만 이슈
+        run: |
+          N=$(cat /tmp/anomalies)
+          [ "$N" -eq 0 ] && { echo "발견 없음 → 이슈 안 만든다"; exit 0; }
+          gh label create bughunt --color D93F0B --description "버그 사냥꾼 발견" 2>/dev/null || true
+          gh issue create --title "버그 발견 ${N}건 — $(TZ=Asia/Seoul date '+%m-%d %H:%M')" \
+            --label bughunt --body-file /tmp/report.md
+        env:
+          GH_TOKEN: ${{ github.token }}

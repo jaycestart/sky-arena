@@ -1,0 +1,68 @@
+# 밸런스 검사원 — 3분 전투를 돌려 난이도 계층별 전적을 잰다.
+#
+# 봇은 rookie(이글)·veteran(팰컨)·ace(플랭커) 세 계층이라 실력 차이는
+# 의도된 것이다. 그래서 '차이가 있다'는 이상이 아니고, **한 계층이 아예
+# 죽어만 나가는 상태**(격추 0 에 사망 다수)만 이상으로 본다.
+name: 밸런스 검사원
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "15 12 * * *"     # 21:15 KST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  balance:
+    name: 3분 전투 전적
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: 계층별 전적을 잰다
+        run: |
+          cd server
+          python - <<'PY'
+          import random, collections
+          random.seed(11)
+          import game
+
+          w=game.World("bal")
+          for _ in range(9000): w.step(1/50); w.events.clear()   # 3분
+
+          per=collections.defaultdict(lambda:[0,0])
+          for p in w.planes.values():
+              per[p.tier][0]+=p.kills; per[p.tier][1]+=p.deaths
+
+          label={"rookie":"루키(이글)","veteran":"베테랑(팰컨)","ace":"에이스(플랭커)"}
+          bad=[]
+          L=["## 계층별 전적 (3분)","",
+             "| 계층 | 격추 | 사망 | K/D |","|---|---|---|---|"]
+          for t in ("rookie","veteran","ace"):
+              k,d=per.get(t,[0,0])
+              kd=f"{k/d:.2f}" if d else "∞"
+              L.append(f"| {label[t]} | {k} | {d} | {kd} |")
+              if k==0 and d>=8:
+                  bad.append(f"{label[t]} 이 3분간 격추 0 에 사망 {d} — 일방적으로 맞기만 한다")
+          L += ["","계층 간 실력 차이는 의도된 것이다. 한 계층이 아예 못 싸우는 상태만 이상으로 본다.",
+                "","## 이상 징후",""]
+          L += [f"- ⚠️ {b}" for b in bad] if bad else ["없음."]
+          body="\n".join(L); print(body)
+          open("/tmp/report.md","w",encoding="utf-8").write(body)
+          open("/tmp/anomalies","w").write(str(len(bad)))
+          PY
+          cat /tmp/report.md >> "$GITHUB_STEP_SUMMARY"
+      - name: 이상이 있을 때만 이슈
+        run: |
+          N=$(cat /tmp/anomalies)
+          [ "$N" -eq 0 ] && { echo "이상 없음 → 이슈 안 만든다"; exit 0; }
+          gh label create balance --color 0E8A16 --description "밸런스 검사원 경고" 2>/dev/null || true
+          gh issue create --title "밸런스 경고 ${N}건 — $(TZ=Asia/Seoul date '+%m-%d %H:%M')" \
+            --label balance --body-file /tmp/report.md
+        env:
+          GH_TOKEN: ${{ github.token }}
