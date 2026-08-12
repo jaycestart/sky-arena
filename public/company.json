@@ -2,15 +2,15 @@
  "staff": [
   {
    "name": "개발자",
-   "status": "queued",
-   "conclusion": "",
+   "status": "completed",
+   "conclusion": "success",
    "at": "2026-08-12T15:54:55Z",
    "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614878655"
   },
   {
    "name": "정비공",
-   "status": "queued",
-   "conclusion": "",
+   "status": "completed",
+   "conclusion": "success",
    "at": "2026-08-12T15:54:54Z",
    "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614878408"
   },
@@ -89,9 +89,9 @@
  "prs": [],
  "commits": [
   {
-   "msg": "현황판 403 완전 해결 — GitHub API 를 아예 부르지 않는다",
-   "at": "2026-08-13T00:54:28+09:00",
-   "url": "https://github.com/jaycestart/sky-arena/commit/962204e7d1c910275061145b2c8bc5af13b5d49b"
+   "msg": "현황판 갱신 — 08월 13일 00:54",
+   "at": "2026-08-12T15:54:57Z",
+   "url": "https://github.com/jaycestart/sky-arena/commit/068d56894f5b943910c086397a0ac123f2c23e6c"
   }
  ]
 }
