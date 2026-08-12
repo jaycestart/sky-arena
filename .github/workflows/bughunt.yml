@@ -1,15 +1,17 @@
-# 버그 사냥꾼 — 극단 상황을 돌려 게임이 깨지는 지점을 찾는다.
+# 버그 사냥꾼 — 일부러 게임을 괴롭혀서 깨지는 곳을 찾는 직원입니다.
 #
-# 노리는 것은 전부 이 프로젝트에서 실제로 났던 부류다: 수직 통과 특이점,
-# NaN 전파, 지면 근처 폭주, 미사일 누적, 정반대 조준의 원뿔 절단.
-# 이슈는 **발견이 있을 때만** 올린다. 평소에는 작업 요약에만 남긴다.
+# 네 가지 상황 모두 이 게임에서 실제로 문제가 났던 것들입니다. 한 번도
+# 난 적 없는 일을 미리 막는 검사는 관리 비용만 늘어납니다.
 name: 버그 사냥꾼
 
 on:
   push:
     branches: [main]
+  workflow_run:
+    workflows: ["keep-alive"]
+    types: [completed]
   schedule:
-    - cron: "10 12 * * *"     # 21:10 KST
+    - cron: "10 12 * * *"
   workflow_dispatch:
 
 permissions:
@@ -18,13 +20,13 @@ permissions:
 
 jobs:
   hunt:
-    name: 극단 상황 사냥
+    name: 극단 상황 점검
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: '3.12' }
-      - name: 극단 시나리오 4종
+      - name: 네 가지 극단 상황을 시험한다
         run: |
           cd server
           python - <<'PY'
@@ -33,30 +35,31 @@ jobs:
           import game
           from flightmath import q_hpb
 
-          def fin(*vals):
+          def ok(*vals):
               return all(isinstance(v,(int,float)) and math.isfinite(v) for v in vals)
 
           bad = []
 
-          # 1) 수직 통과 + 전축 극단 입력 40초
+          # 1) 기수를 수직으로 세운 채 40초간 마구 조종
           p = game.Plane(1, "T", "#fff", "falcon")
           p.pos=[0.0,8000.0,0.0]; p.vel=[0.0,0.0,450.0]; p.throttle=1.0
           for i in range(2000):
               p.c_pitch=1.0; p.c_yaw=math.sin(i/7); p.c_roll=math.sin(i/11)
               p.step(1/50, [])
-              if not fin(*p.pos,*p.vel,p.hdg,p.pit,p.bnk,*p.q):
-                  bad.append(f"수직 극단 입력 {i}틱에서 NaN/inf 발생"); break
+              if not ok(*p.pos,*p.vel,p.hdg,p.pit,p.bnk,*p.q):
+                  bad.append(f"기수를 수직으로 세운 채 마구 조종하니 {i/50:.0f}초 만에 "
+                             f"기체 좌표가 숫자가 아닌 값으로 망가졌습니다."); break
 
-          # 2) 지면 직전 급강하
+          # 2) 땅에 닿기 직전까지 급강하
           p2 = game.Plane(2,"T","#fff","flanker")
           p2.pos=[0.0,400.0,0.0]; p2.vel=[0.0,-200.0,300.0]; p2.pit=-1.2
           p2.q=q_hpb(p2.hdg,p2.pit,p2.bnk)
           for i in range(500):
               p2.c_pitch=-1.0; p2.step(1/50,[])
-              if not fin(*p2.pos,*p2.vel):
-                  bad.append(f"지면 급강하 {i}틱에서 NaN"); break
+              if not ok(*p2.pos,*p2.vel):
+                  bad.append(f"땅으로 급강하시키니 {i/50:.0f}초 만에 좌표 계산이 망가졌습니다."); break
 
-          # 3) 만원 방(24기) + 전원 연사 30초
+          # 3) 24대가 한꺼번에 30초간 연사
           w = game.World("stress")
           for k in range(18): w.add_player(f"P{k}", ("falcon","eagle","flanker")[k%3])
           t0=time.perf_counter(); peak=0
@@ -65,44 +68,50 @@ jobs:
               w.step(1/50); w.events.clear()
               peak=max(peak,len(w.missiles))
               if len(w.missiles) > 4000:
-                  bad.append(f"미사일 누적 폭주 {len(w.missiles)}발 — 수명·명중 정리가 샌다"); break
+                  bad.append(f"미사일이 {len(w.missiles)}발까지 쌓였습니다. 맞았거나 시간이 다 된 "
+                             f"미사일이 사라지지 않고 남아 있습니다."); break
           for pl in w.planes.values():
-              if not fin(*pl.pos,*pl.vel,pl.hdg,pl.pit,pl.bnk):
-                  bad.append(f"만원 스트레스 후 {pl.name} 상태 NaN"); break
+              if not ok(*pl.pos,*pl.vel,pl.hdg,pl.pit,pl.bnk):
+                  bad.append(f"24대가 한꺼번에 쏘는 상황을 30초 버틴 뒤 {pl.name} 기체의 "
+                             f"상태값이 망가졌습니다."); break
           for m in w.missiles:
-              if not fin(*m.pos,*m.vel): bad.append("미사일 좌표 NaN"); break
+              if not ok(*m.pos,*m.vel):
+                  bad.append("미사일 좌표가 숫자가 아닌 값으로 망가졌습니다."); break
           wall=time.perf_counter()-t0
 
-          # 4) 정반대 조준 — 원뿔 절단이 NaN 없이 도는가
+          # 4) 기체 정반대 쪽을 조준
           p3 = game.Plane(9,"T","#fff","falcon"); p3.pos=[0,5000,0]; p3.vel=[0,0,500]
           p3.aim=(0.0,0.0,-1.0)
-          d = w.aim_dir(p3)
-          if not fin(*d): bad.append("정반대 조준에서 aim_dir 이 NaN")
+          if not ok(*w.aim_dir(p3)):
+              bad.append("기체 정반대 쪽을 조준하면 조준 방향 계산이 망가집니다.")
 
-          L=["## 버그 사냥 결과","",
-             "| 시나리오 | 결과 |","|---|---|",
-             "| 수직 통과 + 전축 극단 (40초) | " + ("문제" if any('수직' in b for b in bad) else "통과") + " |",
-             "| 지면 직전 급강하 | " + ("문제" if any('급강하' in b for b in bad) else "통과") + " |",
-             f"| 만원 방 24기 연사 30초 | 최대 미사일 {peak}발 · 시뮬 {wall:.1f}초 |",
-             "| 정반대 조준 원뿔 | " + ("문제" if any('조준' in b for b in bad) else "통과") + " |",
-             "","## 발견",""]
-          L += [f"- 🐛 {b}" for b in bad] if bad else ["없음. 네 시나리오 모두 깨지지 않았다."]
+          def verdict(key):
+              return "문제 있음" if any(key in b for b in bad) else "괜찮습니다"
+
+          L=["## 극단 상황 점검", "",
+             "일부러 게임을 괴롭혀서 깨지는 곳이 있는지 찾았습니다. "
+             "네 가지 모두 예전에 실제로 문제가 났던 상황입니다.", "",
+             "| 시험한 상황 | 결과 |","|---|---|",
+             f"| 수직으로 세운 채 40초간 마구 조종 | {verdict('수직')} |",
+             f"| 땅에 닿기 직전까지 급강하 | {verdict('급강하')} |",
+             f"| 24대가 한꺼번에 30초간 연사 | 미사일 최대 {peak}발까지 쌓임 · 계산에 {wall:.1f}초 |",
+             f"| 기체 정반대 쪽을 조준 | {verdict('조준')} |",
+             "","## 찾아낸 문제",""]
+          L += [f"- 🐛 {b}" for b in bad] if bad else ["없습니다. 네 가지 상황 모두 게임이 멀쩡했습니다."]
           body="\n".join(L); print(body)
           open("/tmp/report.md","w",encoding="utf-8").write(body)
           open("/tmp/anomalies","w").write(str(len(bad)))
           PY
           cat /tmp/report.md >> "$GITHUB_STEP_SUMMARY"
-      - name: 발견이 있을 때만 이슈
+      - name: 문제를 찾았을 때만 이슈를 올린다
         run: |
           N=$(cat /tmp/anomalies)
-          [ "$N" -eq 0 ] && { echo "발견 없음 → 이슈 안 만든다"; exit 0; }
-          # 같은 경고가 커밋마다 쌓이는 것을 막는다. 문제가 계속이면
-          # 이미 열린 이슈가 그 사실을 말하고 있다 — 닫힌 뒤에만 새로 연다.
+          [ "$N" -eq 0 ] && { echo "찾은 문제 없음 → 이슈를 만들지 않습니다"; exit 0; }
           if [ "$(gh issue list --label bughunt --state open --json number --jq length)" != "0" ]; then
-            echo "같은 라벨의 이슈가 이미 열려 있다 → 중복 생성 안 함"; exit 0
+            echo "같은 종류의 이슈가 이미 열려 있어 새로 만들지 않습니다"; exit 0
           fi
           gh label create bughunt --color D93F0B --description "버그 사냥꾼 발견" 2>/dev/null || true
-          gh issue create --title "버그 발견 ${N}건 — $(TZ=Asia/Seoul date '+%m-%d %H:%M')" \
+          gh issue create --title "버그 ${N}건 발견 — $(TZ=Asia/Seoul date '+%m월 %d일 %H:%M')" \
             --label bughunt --body-file /tmp/report.md
         env:
           GH_TOKEN: ${{ github.token }}
