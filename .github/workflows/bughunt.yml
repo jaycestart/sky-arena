@@ -96,6 +96,11 @@ jobs:
         run: |
           N=$(cat /tmp/anomalies)
           [ "$N" -eq 0 ] && { echo "발견 없음 → 이슈 안 만든다"; exit 0; }
+          # 같은 경고가 커밋마다 쌓이는 것을 막는다. 문제가 계속이면
+          # 이미 열린 이슈가 그 사실을 말하고 있다 — 닫힌 뒤에만 새로 연다.
+          if [ "$(gh issue list --label bughunt --state open --json number --jq length)" != "0" ]; then
+            echo "같은 라벨의 이슈가 이미 열려 있다 → 중복 생성 안 함"; exit 0
+          fi
           gh label create bughunt --color D93F0B --description "버그 사냥꾼 발견" 2>/dev/null || true
           gh issue create --title "버그 발견 ${N}건 — $(TZ=Asia/Seoul date '+%m-%d %H:%M')" \
             --label bughunt --body-file /tmp/report.md

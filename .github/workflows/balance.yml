@@ -61,6 +61,11 @@ jobs:
         run: |
           N=$(cat /tmp/anomalies)
           [ "$N" -eq 0 ] && { echo "이상 없음 → 이슈 안 만든다"; exit 0; }
+          # 같은 경고가 커밋마다 쌓이는 것을 막는다. 문제가 계속이면
+          # 이미 열린 이슈가 그 사실을 말하고 있다 — 닫힌 뒤에만 새로 연다.
+          if [ "$(gh issue list --label balance --state open --json number --jq length)" != "0" ]; then
+            echo "같은 라벨의 이슈가 이미 열려 있다 → 중복 생성 안 함"; exit 0
+          fi
           gh label create balance --color 0E8A16 --description "밸런스 검사원 경고" 2>/dev/null || true
           gh issue create --title "밸런스 경고 ${N}건 — $(TZ=Asia/Seoul date '+%m-%d %H:%M')" \
             --label balance --body-file /tmp/report.md
