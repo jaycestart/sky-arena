@@ -45,23 +45,6 @@ mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 
 
-# ── 진단 창구 ────────────────────────────────────────────────────────
-# 클라우드 AI 직원들이 GitHub 에 결과를 못 올리고 있다. 실행은 되는데
-# 산출물이 0 건이라 **원인을 볼 방법이 없었다**. 그래서 GitHub 를 거치지
-# 않는 보고 경로를 하나 판다 — 직원이 여기로 POST 하면 여기 남는다.
-#
-# 공개 쓰기 엔드포인트라 남용될 수 있다. 그래서 메모리에만 두고, 크기와
-# 개수를 세게 제한한다(디스크도 DB 도 건드리지 않는다). 서버가 재시작되면
-# 사라지는데, 진단이 끝나면 지울 임시 창구라 그게 맞다.
-DIAG_LOG: list = []
-DIAG_MAX = 20
-DIAG_BYTES = 8000
-
-
-def diag_add(text: str):
-    DIAG_LOG.append({"t": round(time.time()), "msg": text[:DIAG_BYTES]})
-    del DIAG_LOG[:-DIAG_MAX]
-
 
 _BUILD_CACHE = {"mtime": 0.0, "value": ""}
 
@@ -407,24 +390,12 @@ async def on_connect(reader: asyncio.StreamReader, writer: asyncio.StreamWriter)
             pass
         return
 
-    if method == "POST" and path.split("?")[0] == "/diag":
-        try:
-            n = min(int(headers.get("content-length", "0") or 0), DIAG_BYTES)
-            raw = await reader.readexactly(n) if n > 0 else b""
-            diag_add(raw.decode("utf-8", "replace"))
-            await serve_json(writer, {"ok": 1, "n": len(DIAG_LOG)})
-        except (OSError, ValueError, asyncio.IncompleteReadError):
-            writer.close()
-        return
-
     if method not in ("GET", "HEAD"):
         writer.close()
         return
     try:
         route = path.split("?")[0]
-        if route == "/diag.json":
-            await serve_json(writer, {"n": len(DIAG_LOG), "log": DIAG_LOG})
-        elif route == "/game.json":
+        if route == "/game.json":
             # 홈 화면이 기체/무기 정보를 서버와 동일한 값으로 그리도록
             await serve_json(writer, {"classes": CLASSES, "weapons": WEAPONS,
                                       "difficulty": DIFFICULTY, "cfg": CFG,
