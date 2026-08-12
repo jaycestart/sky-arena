@@ -1,46 +1,53 @@
 {
  "staff": [
   {
-   "name": "정비공",
-   "status": "in_progress",
-   "conclusion": "",
-   "at": "2026-08-12T23:25:26Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31650833182"
-  },
-  {
    "name": "개발자",
    "status": "in_progress",
    "conclusion": "",
-   "at": "2026-08-12T23:25:25Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31650831894"
+   "at": "2026-08-12T23:39:39Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651692164"
   },
   {
-   "name": "실력 균형 검사원",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-12T23:25:08Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31650812662"
-  },
-  {
-   "name": "성능 감시원",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-12T23:25:08Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31650812636"
-  },
-  {
-   "name": "측정원",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-12T23:25:08Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31650812634"
+   "name": "정비공",
+   "status": "in_progress",
+   "conclusion": "",
+   "at": "2026-08-12T23:39:38Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651691060"
   },
   {
    "name": "버그 사냥꾼",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-12T23:25:08Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31650812624"
+   "at": "2026-08-12T23:39:18Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651672985"
+  },
+  {
+   "name": "성능 감시원",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T23:39:18Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651672844"
+  },
+  {
+   "name": "실력 균형 검사원",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T23:39:18Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651672715"
+  },
+  {
+   "name": "측정원",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T23:39:18Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651672709"
+  },
+  {
+   "name": "검증",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T23:39:18Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651672671"
   },
   {
    "name": "비서",
@@ -48,25 +55,9 @@
    "conclusion": "success",
    "at": "2026-08-12T23:25:08Z",
    "url": "https://github.com/jaycestart/sky-arena/actions/runs/31650812619"
-  },
-  {
-   "name": "검증",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-12T16:07:33Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31616006072"
   }
  ],
  "issues": [
-  {
-   "n": 5,
-   "title": "서버 성능 경고 1건 — 08월 13일 00:28",
-   "at": "2026-08-12T15:28:07Z",
-   "url": "https://github.com/jaycestart/sky-arena/issues/5",
-   "labels": [
-    "perf"
-   ]
-  },
   {
    "n": 4,
    "title": "일일보고 — 2026-08-13",
@@ -88,6 +79,21 @@
  ],
  "prs": [],
  "commits": [
+  {
+   "msg": "현황판 10분 대기 장치 제거 — 멈춤의 원인이었다",
+   "at": "2026-08-13T08:39:13+09:00",
+   "url": "https://github.com/jaycestart/sky-arena/commit/32e7c048d9accb3cd8b1921ae5e49b00ad22e5b4"
+  },
+  {
+   "msg": "현황판이 5시간 멈추고 경고가 8시간 남아 있던 두 구멍을 막는다",
+   "at": "2026-08-13T08:28:41+09:00",
+   "url": "https://github.com/jaycestart/sky-arena/commit/132bc2700c206f9e4b3669a952e3560f0fbd5663"
+  },
+  {
+   "msg": "현황판 갱신 — 08월 13일 08:25",
+   "at": "2026-08-12T23:25:36Z",
+   "url": "https://github.com/jaycestart/sky-arena/commit/f00c758ee79502824a70e6bb8b87bbaf8878d98a"
+  },
   {
    "msg": "현황판 갱신 — 08월 13일 06:25",
    "at": "2026-08-12T21:25:53Z",
@@ -112,21 +118,6 @@
    "msg": "현황판 커밋 목록이 한 줄만 나오던 것 수리",
    "at": "2026-08-13T01:06:35+09:00",
    "url": "https://github.com/jaycestart/sky-arena/commit/4c376275489fa33d2a94cf92958f366b06148c53"
-  },
-  {
-   "msg": "현황판 갱신 — 08월 13일 00:55",
-   "at": "2026-08-12T15:55:26Z",
-   "url": "https://github.com/jaycestart/sky-arena/commit/6d9bc14fd3ace76f7a9b2eb6e5dbd1d82337296f"
-  },
-  {
-   "msg": "현황판 갱신 — 08월 13일 00:54",
-   "at": "2026-08-12T15:54:57Z",
-   "url": "https://github.com/jaycestart/sky-arena/commit/068d56894f5b943910c086397a0ac123f2c23e6c"
-  },
-  {
-   "msg": "현황판 403 완전 해결 — GitHub API 를 아예 부르지 않는다",
-   "at": "2026-08-13T00:54:28+09:00",
-   "url": "https://github.com/jaycestart/sky-arena/commit/962204e7d1c910275061145b2c8bc5af13b5d49b"
   }
  ]
 }
