@@ -1,6 +1,97 @@
 {
- "staff": [],
- "issues": [],
+ "staff": [
+  {
+   "name": "개발자",
+   "status": "queued",
+   "conclusion": "",
+   "at": "2026-08-12T15:54:55Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614878655"
+  },
+  {
+   "name": "정비공",
+   "status": "queued",
+   "conclusion": "",
+   "at": "2026-08-12T15:54:54Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614878408"
+  },
+  {
+   "name": "측정원",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T15:54:33Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614846996"
+  },
+  {
+   "name": "실력 균형 검사원",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T15:54:33Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614846948"
+  },
+  {
+   "name": "버그 사냥꾼",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T15:54:33Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614846924"
+  },
+  {
+   "name": "검증",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T15:54:33Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614846880"
+  },
+  {
+   "name": "성능 감시원",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T15:54:33Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614846869"
+  },
+  {
+   "name": "비서",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T15:44:02Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31613907227"
+  }
+ ],
+ "issues": [
+  {
+   "n": 5,
+   "title": "서버 성능 경고 1건 — 08월 13일 00:28",
+   "at": "2026-08-12T15:28:07Z",
+   "url": "https://github.com/jaycestart/sky-arena/issues/5",
+   "labels": [
+    "perf"
+   ]
+  },
+  {
+   "n": 4,
+   "title": "일일보고 — 2026-08-13",
+   "at": "2026-08-12T15:16:42Z",
+   "url": "https://github.com/jaycestart/sky-arena/issues/4",
+   "labels": [
+    "daily-report"
+   ]
+  },
+  {
+   "n": 2,
+   "title": "(시운전) 일일보고 — 2026-08-12",
+   "at": "2026-08-12T10:23:42Z",
+   "url": "https://github.com/jaycestart/sky-arena/issues/2",
+   "labels": [
+    "daily-report"
+   ]
+  }
+ ],
  "prs": [],
- "commits": []
+ "commits": [
+  {
+   "msg": "현황판 403 완전 해결 — GitHub API 를 아예 부르지 않는다",
+   "at": "2026-08-13T00:54:28+09:00",
+   "url": "https://github.com/jaycestart/sky-arena/commit/962204e7d1c910275061145b2c8bc5af13b5d49b"
+  }
+ ]
 }
