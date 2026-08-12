@@ -1,60 +1,60 @@
 {
  "staff": [
   {
-   "name": "정비공",
-   "status": "queued",
-   "conclusion": "",
-   "at": "2026-08-12T16:07:06Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31615968033"
-  },
-  {
    "name": "개발자",
-   "status": "queued",
-   "conclusion": "",
-   "at": "2026-08-12T16:07:05Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31615966742"
-  },
-  {
-   "name": "버그 사냥꾼",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-12T16:06:47Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31615940536"
+   "at": "2026-08-12T18:40:04Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31628791329"
+  },
+  {
+   "name": "정비공",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T18:40:01Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31628786730"
   },
   {
    "name": "측정원",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-12T16:06:47Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31615940534"
+   "at": "2026-08-12T18:39:43Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31628762029"
   },
   {
    "name": "성능 감시원",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-12T16:06:47Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31615940532"
-  },
-  {
-   "name": "검증",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-12T16:06:47Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31615940505"
+   "at": "2026-08-12T18:39:43Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31628762003"
   },
   {
    "name": "실력 균형 검사원",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-12T16:06:47Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31615940504"
+   "at": "2026-08-12T18:39:43Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31628762001"
+  },
+  {
+   "name": "버그 사냥꾼",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T18:39:43Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31628761975"
   },
   {
    "name": "비서",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-12T15:44:02Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31613907227"
+   "at": "2026-08-12T18:39:43Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31628761942"
+  },
+  {
+   "name": "검증",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T16:07:33Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31616006072"
   }
  ],
  "issues": [
@@ -89,6 +89,16 @@
  "prs": [],
  "commits": [
   {
+   "msg": "현황판 커밋 몰림 방지 — 10분 안에 두 번 올리지 않는다",
+   "at": "2026-08-13T01:07:12+09:00",
+   "url": "https://github.com/jaycestart/sky-arena/commit/207be96d1fb5ed52a6f98aba4aaa53c9551459b3"
+  },
+  {
+   "msg": "현황판 갱신 — 08월 13일 01:07",
+   "at": "2026-08-12T16:07:08Z",
+   "url": "https://github.com/jaycestart/sky-arena/commit/d85dea58f63f8b7077c449b99f0a205bdfd03a7b"
+  },
+  {
    "msg": "현황판 커밋 목록이 한 줄만 나오던 것 수리",
    "at": "2026-08-13T01:06:35+09:00",
    "url": "https://github.com/jaycestart/sky-arena/commit/4c376275489fa33d2a94cf92958f366b06148c53"
@@ -117,16 +127,6 @@
    "msg": "개발자 배치 — 코드를 실제로 새로 쓰는 직원. 열쇠는 무료",
    "at": "2026-08-13T00:37:03+09:00",
    "url": "https://github.com/jaycestart/sky-arena/commit/39810aee9b8d82ad3159bc620e0b107b0d805054"
-  },
-  {
-   "msg": "정비공 자동 수리 — 미사일 상한을 380발에서 186발로 낮췄습니다. 화면 정보량이 기준 안(8.3KB)으로 들어왔습니다.",
-   "at": "2026-08-12T15:28:07Z",
-   "url": "https://github.com/jaycestart/sky-arena/commit/85aa881a07e3c9258402014ee75b08d984054948"
-  },
-  {
-   "msg": "두 번째 고장 주입 — 정비공이 끝까지 초록불로 끝나는지 확인",
-   "at": "2026-08-13T00:27:46+09:00",
-   "url": "https://github.com/jaycestart/sky-arena/commit/0d0d50338369f798e34b3b6534caecf43f959bfe"
   }
  ]
 }
