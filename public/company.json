@@ -1,63 +1,65 @@
 {
  "staff": [
   {
-   "name": "개발자",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-12T23:39:39Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651692164"
-  },
-  {
    "name": "정비공",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-12T23:39:38Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651691060"
+   "at": "2026-08-12T23:46:55Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31652126533"
   },
   {
-   "name": "버그 사냥꾼",
+   "name": "개발자",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-12T23:39:18Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651672985"
-  },
-  {
-   "name": "성능 감시원",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-12T23:39:18Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651672844"
+   "at": "2026-08-12T23:46:48Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31652120449"
   },
   {
    "name": "실력 균형 검사원",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-12T23:39:18Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651672715"
+   "at": "2026-08-12T23:46:29Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31652101828"
   },
   {
    "name": "측정원",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-12T23:39:18Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651672709"
+   "at": "2026-08-12T23:46:29Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31652101819"
+  },
+  {
+   "name": "성능 감시원",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T23:46:29Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31652101817"
   },
   {
    "name": "검증",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-12T23:39:18Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651672671"
+   "at": "2026-08-12T23:46:29Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31652101803"
   },
   {
-   "name": "비서",
+   "name": "버그 사냥꾼",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-12T23:25:08Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31650812619"
+   "at": "2026-08-12T23:46:29Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31652101794"
   }
  ],
  "issues": [
+  {
+   "n": 6,
+   "title": "개발자 열쇠가 작동하지 않습니다",
+   "at": "2026-08-12T23:47:03Z",
+   "url": "https://github.com/jaycestart/sky-arena/issues/6",
+   "labels": [
+    "열쇠문제"
+   ]
+  },
   {
    "n": 4,
    "title": "일일보고 — 2026-08-13",
@@ -79,6 +81,21 @@
  ],
  "prs": [],
  "commits": [
+  {
+   "msg": "열쇠 점검 결과를 현황판에서 볼 수 있게",
+   "at": "2026-08-13T08:46:24+09:00",
+   "url": "https://github.com/jaycestart/sky-arena/commit/a88169e59a5320b03716429a17b689500deb3e23"
+  },
+  {
+   "msg": "개발자 열쇠 점검 추가 — 되는지 안 되는지 알 수 있게",
+   "at": "2026-08-13T08:44:37+09:00",
+   "url": "https://github.com/jaycestart/sky-arena/commit/c2bc7bc941b27f28cc443bb6cb4608a514757abf"
+  },
+  {
+   "msg": "현황판 갱신 — 08월 13일 08:39",
+   "at": "2026-08-12T23:39:59Z",
+   "url": "https://github.com/jaycestart/sky-arena/commit/6a54c0c6b05538b3dada34f67cbb0b2b90c918dd"
+  },
   {
    "msg": "현황판 갱신 — 08월 13일 08:39",
    "at": "2026-08-12T23:39:48Z",
@@ -103,21 +120,6 @@
    "msg": "현황판 갱신 — 08월 13일 06:25",
    "at": "2026-08-12T21:25:53Z",
    "url": "https://github.com/jaycestart/sky-arena/commit/7a9a7943de1e186fad6b5560e12c427d023ac3a1"
-  },
-  {
-   "msg": "현황판 갱신 — 08월 13일 03:40",
-   "at": "2026-08-12T18:40:29Z",
-   "url": "https://github.com/jaycestart/sky-arena/commit/d597fc6635aa35badccdc7614909fd162117c7de"
-  },
-  {
-   "msg": "현황판 커밋 몰림 방지 — 10분 안에 두 번 올리지 않는다",
-   "at": "2026-08-13T01:07:12+09:00",
-   "url": "https://github.com/jaycestart/sky-arena/commit/207be96d1fb5ed52a6f98aba4aaa53c9551459b3"
-  },
-  {
-   "msg": "현황판 갱신 — 08월 13일 01:07",
-   "at": "2026-08-12T16:07:08Z",
-   "url": "https://github.com/jaycestart/sky-arena/commit/d85dea58f63f8b7077c449b99f0a205bdfd03a7b"
   }
  ]
 }
