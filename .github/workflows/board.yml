@@ -43,7 +43,23 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
+      - name: 방금 갱신했으면 건너뛴다
+        id: recent
+        run: |
+          # 직원 일곱이 몇 초 차이로 끝나면 현황판이 그만큼 커밋한다.
+          # 실제로 00:54 와 00:55 에 연달아 올라갔고, 그때마다 배포가 돈다.
+          # 마지막 갱신이 10분 안이면 넘어간다.
+          LAST=$(git log -1 --format=%ct --grep="현황판 갱신" || echo 0)
+          NOW=$(date +%s)
+          if [ -n "$LAST" ] && [ "$LAST" != "0" ] && [ $((NOW - LAST)) -lt 600 ]; then
+            echo "$(( (NOW - LAST) / 60 ))분 전에 갱신했습니다. 건너뜁니다."
+            echo "skip=yes" >> $GITHUB_OUTPUT
+          else
+            echo "skip=no" >> $GITHUB_OUTPUT
+          fi
+
       - name: 현황을 파일로 쓴다
+        if: steps.recent.outputs.skip == 'no'
         run: |
           python - <<'PY' > public/company.json
           import json, os, subprocess
@@ -93,6 +109,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       - name: 바뀐 게 있을 때만 올린다
+        if: steps.recent.outputs.skip == 'no'
         run: |
           # 내용이 같으면 올리지 않습니다. 안 그러면 근무할 때마다 커밋이
           # 쌓이고 그때마다 배포가 돌아 저장소가 지저분해집니다.
