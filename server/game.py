@@ -45,6 +45,10 @@ CFG = {
     "flares": 20,
     "flareCd": 0.45,
     "viewR": 14000.0,           # 스냅샷 시야 반경
+    # 한 번에 내려보낼 미사일 수의 상한. 24대가 한꺼번에 연사하면 시야 안에만
+    # 450발이 잡혀 스냅샷이 17KB까지 부풀었다. 가까운 것부터 이만큼만 보낸다.
+    # 화면에 동시에 150발이 보이면 사람 눈으로는 이미 구분이 안 된다.
+    "maxMissiles": 150,         # [정비공조절] 40~400
     "stallWarnMargin": 0.85,    # 실속각의 85% 부터 경고
     # ── 렌더링 전용 (서버 물리는 이 값을 전혀 참조하지 않는다) ────
     # 방을 만들 때 한 번 정하고 **경기 중에는 고정**한다. 실시간으로
@@ -1068,9 +1072,18 @@ class World:
         # 기총이 사라져 총알은 더 이상 생기지 않는다. 프로토콜의 'b' 키는
         # 클라이언트가 그대로 읽으므로 빈 배열로 유지한다.
         bullets = []
-        missiles = [[m.id, round(m.pos[0], 1), round(m.pos[1], 1), round(m.pos[2], 1),
+        # 미사일은 수가 폭발적으로 늘어나는 유일한 항목이다. 24대가 한꺼번에
+        # 연사하면 시야 안에만 450발이 잡혀 스냅샷이 17KB까지 부푼다. 가까운
+        # 것부터 상한만큼만 보낸다. 좌표를 1m 단위로 줄인 것도 같은 이유다 —
+        # 시속 2000km로 나는 물체에 10cm 정밀도는 화면에서 의미가 없다.
+        vis = [m for m in self.missiles if near(m)]
+        cap = CFG["maxMissiles"]
+        if len(vis) > cap:
+            vis.sort(key=lambda m: v_dot(v_sub(tuple(m.pos), vp), v_sub(tuple(m.pos), vp)))
+            vis = vis[:cap]
+        missiles = [[m.id, round(m.pos[0]), round(m.pos[1]), round(m.pos[2]),
                      round(m.vel[0]), round(m.vel[1]), round(m.vel[2]), m.owner]
-                    for m in self.missiles if near(m)]
+                    for m in vis]
         flares = [[round(f.pos[0], 1), round(f.pos[1], 1), round(f.pos[2], 1),
                    round(f.life, 1)] for f in self.flares if near(f)]
 
@@ -1080,16 +1093,19 @@ class World:
             v = viewer
             spd = v_len(tuple(v.vel))
             snap["me"] = {
-                "x": v.pos[0], "y": v.pos[1], "z": v.pos[2],
-                "q": [v.q[0], v.q[1], v.q[2], v.q[3]],
+                # 자릿수를 줄인다. 파이썬 float 을 그대로 실으면 좌표 하나가
+                # 1234.5678901234567 처럼 18자가 되는데, 화면에서 1cm 차이는
+                # 보이지 않는다. 자세(q)만은 회전 누적 오차 때문에 넉넉히 둔다.
+                "x": round(v.pos[0], 2), "y": round(v.pos[1], 2), "z": round(v.pos[2], 2),
+                "q": [round(v.q[0], 5), round(v.q[1], 5), round(v.q[2], 5), round(v.q[3], 5)],
                 # 자세의 원본은 이 세 값이다. 기수각이 90도를 넘으면
                 # 자세에서 되뽑을 때 뒤집힌 해가 나오므로 그대로 내려보낸다.
                 "hpb": [round(v.hdg, 6), round(v.pit, 6), round(v.bnk, 6)],
-                "vx": v.vel[0], "vy": v.vel[1], "vz": v.vel[2],
-                "sp": spd, "mach": round(v.mach, 3), "aoa": round(v.aoa, 4),
+                "vx": round(v.vel[0], 2), "vy": round(v.vel[1], 2), "vz": round(v.vel[2], 2),
+                "sp": round(spd, 2), "mach": round(v.mach, 3), "aoa": round(v.aoa, 4),
                 "g": round(v.gload, 2), "bo": round(v.blackout, 2),
-                "hp": max(0.0, v.hp), "al": 1 if v.alive else 0,
-                "rt": max(0.0, v.respawn_t), "iv": round(v.invuln, 2),
+                "hp": round(max(0.0, v.hp), 1), "al": 1 if v.alive else 0,
+                "rt": round(max(0.0, v.respawn_t), 2), "iv": round(v.invuln, 2),
                 "thr": round(v.throttle, 2), "ab": 1 if v.ab else 0,
                 "am": v.ammo, "ms": v.missiles, "fla": v.flares,
                 "lk": v.lock_id if v.lock_t >= WEAPONS[MISSILE]["lockTime"] else 0,

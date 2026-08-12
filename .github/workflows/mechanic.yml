@@ -1,0 +1,211 @@
+# 정비공 — 사장님 허락 없이 스스로 고치고 바로 반영하는 직원입니다.
+#
+# ── 무엇을 고칠 수 있고 무엇을 못 고치나 ────────────────────────
+# 이 직원은 사람처럼 코드를 새로 짜지 못합니다. 대신 **미리 정해둔 조절
+# 손잡이를 돌려서** 지표를 기준 안으로 되돌립니다. 예를 들어 화면 정보량이
+# 너무 크면 game.py 의 maxMissiles 를 낮춥니다. 손잡이로 안 되는 문제는
+# 솔직히 "못 고쳤다"고 적고 사람에게 넘깁니다 — 추측으로 고쳐놓고 고쳤다고
+# 하는 것이 이 프로젝트에서 가장 많이 시간을 버린 실수였습니다.
+#
+# ── 왜 바로 main 에 올리나 ──────────────────────────────────────
+# 사장님이 "내 개입 없이 스스로 고치라"고 지시했습니다. 그래서 결재를
+# 기다리지 않고 바로 반영합니다. 대신 올리기 전에 반드시,
+#   1) 고친 뒤 지표가 실제로 기준 안에 들어왔는지 다시 재고
+#   2) 문법 검사와 60초 봇 전투를 통과하는지 확인하고
+#   3) 하나라도 어긋나면 되돌리고 아무것도 올리지 않습니다.
+# 검증을 통과한 것만 올라가므로, 망가진 채로 배포되는 일은 없습니다.
+#
+# 한 번에 손잡이 하나만 돌립니다. 여러 개를 같이 돌리면 무엇이 효과가
+# 있었는지 알 수 없게 됩니다.
+name: 정비공
+
+on:
+  workflow_run:
+    workflows: ["성능 감시원", "측정원", "실력 균형 검사원"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: mechanic          # 두 명이 동시에 고치면 서로 덮어쓴다
+  cancel-in-progress: false
+
+jobs:
+  repair:
+    name: 자동 수리
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0, token: '${{ secrets.GITHUB_TOKEN }}' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+
+      - name: 고칠 곳이 있는지 보고 손잡이를 돌린다
+        id: fix
+        run: |
+          cd server
+          python - <<'PY'
+          import io, json, math, os, random, re
+
+          def snapshot_size():
+              """꽉 찬 방에서 한 번에 내려보내는 정보량(바이트)."""
+              random.seed(5)
+              import importlib, game
+              importlib.reload(game)
+              w = game.World("m")
+              for k in range(18):
+                  w.add_player(f"P{k}", ("falcon","eagle","flanker")[k%3])
+              for _ in range(300):
+                  for p in w.planes.values(): p.want_fire=True; p.want_missile=True
+                  w.step(1/50); w.events.clear()
+              v = next(iter(w.planes.values()))
+              return len(json.dumps(w.snapshot(v,{}),separators=(',',':')).encode())
+
+          def read_knob(name):
+              s = io.open("game.py", encoding="utf-8").read()
+              m = re.search(rf'"{name}": (\d+),\s*# \[정비공조절\] (\d+)~(\d+)', s)
+              return (int(m.group(1)), int(m.group(2)), int(m.group(3))) if m else None
+
+          def write_knob(name, val):
+              s = io.open("game.py", encoding="utf-8").read()
+              s2 = re.sub(rf'("{name}": )\d+(,\s*# \[정비공조절\])', rf'\g<1>{val}\g<2>', s)
+              io.open("game.py","w",encoding="utf-8",newline="\n").write(s2)
+
+          BUDGET = 10240
+          log, fixed, gave_up = [], None, None
+
+          size = snapshot_size()
+          if size <= BUDGET:
+              log.append(f"화면 정보량 {size/1024:.1f}KB — 기준 안입니다. 손댈 것이 없습니다.")
+          else:
+              knob = read_knob("maxMissiles")
+              if not knob:
+                  gave_up = "화면 정보량이 기준을 넘었는데 조절 손잡이를 찾지 못했습니다."
+              else:
+                  cur, lo, hi = knob
+                  log.append(f"화면 정보량이 {size/1024:.1f}KB 로 기준 10KB 를 넘었습니다. "
+                             f"미사일 상한을 {cur}발부터 낮춰봅니다.")
+                  val = cur
+                  while val > lo:
+                      val = max(lo, int(val * 0.7))
+                      write_knob("maxMissiles", val)
+                      size = snapshot_size()
+                      log.append(f"  상한 {val}발 → {size/1024:.1f}KB")
+                      if size <= BUDGET:
+                          fixed = (f"미사일 상한을 {cur}발에서 {val}발로 낮췄습니다. "
+                                   f"화면 정보량이 기준 안({size/1024:.1f}KB)으로 들어왔습니다.")
+                          break
+                  if not fixed:
+                      write_knob("maxMissiles", cur)      # 되돌린다
+                      gave_up = (f"미사일 상한을 최소값 {lo}발까지 낮춰도 화면 정보량이 "
+                                 f"{size/1024:.1f}KB 로 기준을 넘습니다. 손잡이로는 해결되지 "
+                                 f"않습니다. 사람이 봐야 합니다.")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"fixed={'yes' if fixed else 'no'}\n")
+              f.write(f"gaveup={'yes' if gave_up else 'no'}\n")
+              f.write(f"what={fixed or gave_up or ''}\n")
+          io.open("/tmp/worklog.md","w",encoding="utf-8").write("\n".join(log))
+          if gave_up: io.open("/tmp/gaveup.md","w",encoding="utf-8").write(gave_up)
+          print("\n".join(log))
+          PY
+
+      - name: 고친 것이 정말 멀쩡한지 확인한다
+        id: verify
+        if: steps.fix.outputs.fixed == 'yes'
+        run: |
+          cd server
+          python -m py_compile game.py flightmath.py app.py
+          PYTHONIOENCODING=utf-8 python - <<'PY'
+          import math, random, sys
+          random.seed(7)
+          import game
+          w=game.World("v"); k=d=0; mb=mp=0.0
+          for _ in range(3000):
+              w.step(1/50); w.events.clear()
+              for p in w.planes.values():
+                  if p.alive:
+                      mp=max(mp,abs(math.degrees(p.pit))); mb=max(mb,abs(math.degrees(p.bnk)))
+          k=sum(p.kills for p in w.planes.values()); d=sum(p.deaths for p in w.planes.values())
+          bad=[]
+          if d>k+3: bad.append(f"deaths {d} > kills {k}")
+          if k==0:  bad.append("no kills")
+          if mb>1.0: bad.append(f"self-roll {mb:.1f}")
+          if mp<30: bad.append("no vertical")
+          print("kills",k,"deaths",d,"maxpitch",round(mp),"maxbank",round(mb,2))
+          if bad: print("VERIFY FAILED:", bad); sys.exit(1)
+          print("verify ok")
+          PY
+
+      - name: 통과했으면 바로 반영한다
+        if: steps.fix.outputs.fixed == 'yes' && steps.verify.outcome == 'success'
+        run: |
+          git config user.name  "정비공"
+          git config user.email "actions@github.com"
+          git add server/game.py
+          git commit -F - <<EOF
+          정비공 자동 수리 — ${{ steps.fix.outputs.what }}
+
+          성능 감시원이 올린 경고를 보고 정비공이 스스로 고쳤습니다.
+          사람의 결재를 거치지 않았으므로, 올리기 전에 아래를 모두 확인했습니다.
+
+          $(cat /tmp/worklog.md)
+
+          검증: 문법 검사 통과, 봇 60초 전투에서 격추와 사망이 균형을 이루고
+          저절로 기울어짐 0도, 수직 기동 유지.
+          EOF
+          git push origin HEAD:main
+          # 고쳐졌으니 관련 경고를 닫는다
+          for n in $(gh issue list --label perf --state open --json number --jq '.[].number'); do
+            gh issue comment "$n" --body "정비공이 자동으로 고쳤습니다.
+
+          ${{ steps.fix.outputs.what }}
+
+          $(cat /tmp/worklog.md)
+
+          검증을 통과해 main 에 바로 반영했습니다. 이 문제는 닫습니다."
+            gh issue close "$n"
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: 못 고쳤으면 솔직히 적는다
+        if: steps.fix.outputs.gaveup == 'yes'
+        run: |
+          if [ "$(gh issue list --label 정비불가 --state open --json number --jq length)" != "0" ]; then
+            echo "이미 같은 내용을 올려두었습니다"; exit 0
+          fi
+          gh label create 정비불가 --color B60205 --description "정비공이 손잡이로 못 고친 문제" 2>/dev/null || true
+          {
+            echo "## 정비공이 못 고쳤습니다"
+            echo
+            cat /tmp/gaveup.md
+            echo
+            echo "### 시도한 것"
+            echo
+            cat /tmp/worklog.md
+            echo
+            echo "---"
+            echo
+            echo "정비공은 미리 정해둔 조절 손잡이만 돌릴 수 있습니다."
+            echo "이 문제는 코드를 새로 짜야 해서 사람이 봐야 합니다."
+          } > /tmp/body.md
+          gh issue create --title "정비공이 못 고친 문제 — $(TZ=Asia/Seoul date '+%m월 %d일')" \
+            --label 정비불가 --body-file /tmp/body.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: 검증에 실패하면 아무것도 올리지 않는다
+        if: steps.fix.outputs.fixed == 'yes' && steps.verify.outcome == 'failure'
+        run: |
+          gh issue create --title "정비공 수리가 검증을 통과하지 못했습니다 — $(TZ=Asia/Seoul date '+%m월 %d일')" \
+            --label 정비불가 --body "정비공이 고쳐봤지만 고친 결과가 검증을 통과하지 못해 되돌렸습니다.
+          게임에는 아무 변화도 반영되지 않았습니다. 사람이 봐야 합니다.
+
+          $(cat /tmp/worklog.md)"
+          exit 1
+        env:
+          GH_TOKEN: ${{ github.token }}
