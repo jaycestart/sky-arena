@@ -38,7 +38,10 @@ jobs:
     name: 현황 파일 갱신
     runs-on: ubuntu-latest
     steps:
+      # 기본 checkout 은 커밋 하나만 가져온다. 그러면 최근 작업 목록이
+      # 한 줄만 나온다(실제로 그랬다). 전체 이력이 필요하다.
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
 
       - name: 현황을 파일로 쓴다
         run: |
