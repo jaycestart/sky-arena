@@ -23,7 +23,9 @@ def main():
                 "저장소 비밀값에 GEMINI_API_KEY 나 GROQ_API_KEY 를 넣어주세요.")
         io.open("/tmp/keycheck.md", "w", encoding="utf-8").write(line)
         print(line)
-        return 0
+        # 열쇠가 없는 것도 실패로 본다. 통과는 "열쇠가 실제로 된다"는
+        # 뜻이어야지, "확인해 보지 않았다"는 뜻이면 안 된다.
+        return 1
 
     # 짧게 한 번 불러본다. 실패하면 developer.ask 가 이유를 적고 종료한다.
     try:

@@ -66,6 +66,40 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
 
+      # 점검 결과를 이슈로 남긴다. 근무 요약은 Actions 화면을 열어야 보이는데
+      # 사장님은 현황판만 보신다. 열쇠가 안 되면 현황판에 뜨게 해야 한다.
+      - name: 열쇠가 안 되면 알린다
+        if: steps.key.outcome != 'success'
+        run: |
+          if [ "$(gh issue list --label 열쇠문제 --state open --json number --jq length)" != "0" ]; then
+            echo "이미 알려두었습니다"; exit 0
+          fi
+          gh label create 열쇠문제 --color B60205 --description "개발자 열쇠 문제" 2>/dev/null || true
+          {
+            echo "## 개발자가 일을 시작하지 못합니다"
+            echo
+            cat /tmp/keycheck.md
+            echo
+            echo "---"
+            echo
+            echo "다른 직원 여덟 명은 열쇠 없이 정상 근무 중입니다."
+            echo "이 문제는 개발자 한 명에게만 해당합니다."
+          } > /tmp/kbody.md
+          gh issue create --title "개발자 열쇠가 작동하지 않습니다" \
+            --label 열쇠문제 --body-file /tmp/kbody.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: 열쇠가 되면 지난 알림을 닫는다
+        if: steps.key.outcome == 'success'
+        run: |
+          for n in $(gh issue list --label 열쇠문제 --state open --json number --jq '.[].number'); do
+            gh issue comment "$n" --body "열쇠가 정상 작동합니다. 개발자가 일할 수 있습니다." || true
+            gh issue close "$n" || true
+          done
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: 열쇠가 있는지, 맡길 일이 있는지 본다
         id: check
         run: |
