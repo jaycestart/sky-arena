@@ -28,7 +28,7 @@ const settings = {
   // 55도면 마우스를 휙 돌렸을 때 조준점만 먼저 가고 기체가 뒤따라온다 —
   // 사용자가 "따라오는 게 아니라 같이 움직이게" 라고 한 게 이것이다.
   // 8도로 좁히면 기수가 조준점에 붙어 함께 돈다.
-  leash: +(localStorage.getItem('skyarena.leash') ?? 8),
+  leash: +(localStorage.getItem('skyarena.leash') ?? 28),
   // ── 그래픽 ──────────────────────────────────────────────────────
   // 'low' 는 이번 그래픽 작업 전 파이프라인 그대로다(회귀 안전판).
   gfx: localStorage.getItem('skyarena.gfx') || 'med',
@@ -62,10 +62,14 @@ if (localStorage.getItem('skyarena.sensv') !== '2') {
   localStorage.setItem('skyarena.cm360', '5');
   localStorage.setItem('skyarena.sensv', '2');
 }
-if (localStorage.getItem('skyarena.leashv') !== '2') {
-  settings.leash = 8;
-  localStorage.setItem('skyarena.leash', '8');
-  localStorage.setItem('skyarena.leashv', '2');
+// 리시 8도는 너무 조였다. 조준점이 기수에서 8도 이상 못 벗어나면
+// **기수를 끌고 갈 여유가 사라져** 회전 명령이 만들어지지 않는다 —
+// 사용자가 '화면 회전이 안 된다' 고 한 것이 이 상태다.
+// 28도면 기수에 붙어 함께 도는 느낌은 남기면서 조향 권한이 산다.
+if (localStorage.getItem('skyarena.leashv') !== '3') {
+  settings.leash = 28;
+  localStorage.setItem('skyarena.leash', '28');
+  localStorage.setItem('skyarena.leashv', '3');
 }
 if (localStorage.getItem('skyarena.fovv') !== '2') {
   settings.fov = 88;
@@ -134,7 +138,7 @@ if (!scene.ok) {
 // 꺼내 준 예전 코드가 며칠씩 살아남는다 — 사용자에게는 '그래픽이 갑자기
 // 옛날로 돌아갔다'로 보인다(구형 렌더러 시절 번들이라 실제로 그렇다).
 // 사람이 눈치채고 조치하기를 기대하지 말고 스스로 복구한다.
-export const BUILD = '2026-08-11b';
+export const BUILD = '2026-08-12a';
 
 async function healIfStale() {
   try {
