@@ -83,10 +83,7 @@ jobs:
           ")
           echo "들어 있는 비밀값 이름: $NAMES"
           echo "names=$NAMES" >> $GITHUB_ENV
-          if [ "$(gh issue list --label 열쇠문제 --state open --json number --jq length)" != "0" ]; then
-            echo "이미 알려두었습니다"; exit 0
-          fi
-          gh label create 열쇠문제 --color B60205 --description "개발자 열쇠 문제" 2>/dev/null || true
+          EXIST=$(gh issue list --label 열쇠문제 --state open --json number --jq '.[0].number // empty')
           {
             echo "## 개발자가 일을 시작하지 못합니다"
             echo
@@ -109,8 +106,16 @@ jobs:
             echo "다른 직원 여덟 명은 열쇠 없이 정상 근무 중입니다."
             echo "이 문제는 개발자 한 명에게만 해당합니다."
           } > /tmp/kbody.md
-          gh issue create --title "개발자 열쇠가 작동하지 않습니다" \
-            --label 열쇠문제 --body-file /tmp/kbody.md
+          if [ -n "$EXIST" ]; then
+            # 이미 열려 있으면 본문만 최신으로 바꾼다. 같은 알림을 여러 장
+            # 만들면 사장님이 어느 것이 지금 상태인지 알 수 없다.
+            gh issue edit "$EXIST" --body-file /tmp/kbody.md
+            echo "#$EXIST 을 최신 내용으로 고쳤습니다"
+          else
+            gh label create 열쇠문제 --color B60205 --description "개발자 열쇠 문제" 2>/dev/null || true
+            gh issue create --title "개발자 열쇠가 작동하지 않습니다" \
+              --label 열쇠문제 --body-file /tmp/kbody.md
+          fi
         env:
           GH_TOKEN: ${{ github.token }}
           ALL_SECRETS: ${{ toJSON(secrets) }}
