@@ -2,15 +2,15 @@
  "staff": [
   {
    "name": "개발자",
-   "status": "in_progress",
-   "conclusion": "",
+   "status": "completed",
+   "conclusion": "success",
    "at": "2026-08-12T23:39:39Z",
    "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651692164"
   },
   {
    "name": "정비공",
-   "status": "in_progress",
-   "conclusion": "",
+   "status": "completed",
+   "conclusion": "success",
    "at": "2026-08-12T23:39:38Z",
    "url": "https://github.com/jaycestart/sky-arena/actions/runs/31651691060"
   },
@@ -80,6 +80,11 @@
  "prs": [],
  "commits": [
   {
+   "msg": "현황판 갱신 — 08월 13일 08:39",
+   "at": "2026-08-12T23:39:48Z",
+   "url": "https://github.com/jaycestart/sky-arena/commit/626fa9fe0b389f4396ec3635701441326422e483"
+  },
+  {
    "msg": "현황판 10분 대기 장치 제거 — 멈춤의 원인이었다",
    "at": "2026-08-13T08:39:13+09:00",
    "url": "https://github.com/jaycestart/sky-arena/commit/32e7c048d9accb3cd8b1921ae5e49b00ad22e5b4"
@@ -113,11 +118,6 @@
    "msg": "현황판 갱신 — 08월 13일 01:07",
    "at": "2026-08-12T16:07:08Z",
    "url": "https://github.com/jaycestart/sky-arena/commit/d85dea58f63f8b7077c449b99f0a205bdfd03a7b"
-  },
-  {
-   "msg": "현황판 커밋 목록이 한 줄만 나오던 것 수리",
-   "at": "2026-08-13T01:06:35+09:00",
-   "url": "https://github.com/jaycestart/sky-arena/commit/4c376275489fa33d2a94cf92958f366b06148c53"
   }
  ]
 }
