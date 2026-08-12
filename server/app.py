@@ -400,8 +400,6 @@ async def on_connect(reader: asyncio.StreamReader, writer: asyncio.StreamWriter)
             await serve_json(writer, {"classes": CLASSES, "weapons": WEAPONS,
                                       "difficulty": DIFFICULTY, "cfg": CFG,
                                       "build": current_build()})
-        elif route == "/company.json":
-            await serve_json(writer, await company_status())
         elif route == "/stats.json":
             await serve_json(writer, {
                 "uptime": round(time.time() - START, 1),
@@ -418,67 +416,6 @@ async def on_connect(reader: asyncio.StreamReader, writer: asyncio.StreamWriter)
         pass
     finally:
         writer.close()
-
-
-# ── AI 회사 현황판 자료 ─────────────────────────────────────────────
-# 현황판이 브라우저에서 GitHub 를 직접 부르던 것을 서버로 옮긴다.
-#
-# 왜: 로그인 없이 GitHub API 를 부르면 **IP 하나당 시간당 60회**가 전부다.
-# 현황판은 한 번 열 때 4회를 쓰고 5분마다 다시 부르므로, 창 하나를 한 시간만
-# 켜둬도 48회다. 거기에 개발자가 확인차 부른 것까지 겹쳐 실제로 바닥났고
-# 현황판 전체가 "GitHub 403" 만 띄웠다(사용자 화면으로 확인).
-#
-# 서버가 대신 받아 10분간 들고 있으면 보는 사람이 몇 명이든 시간당 24회면
-# 끝난다. 실패해도 마지막으로 받아둔 것을 계속 보여준다 — 빈 화면보다 낫다.
-_CO = {"at": 0.0, "data": None}
-_CO_TTL = 600.0
-
-async def company_status() -> dict:
-    now = time.time()
-    if _CO["data"] is not None and now - _CO["at"] < _CO_TTL:
-        return dict(_CO["data"], cached=round(now - _CO["at"]))
-
-    def fetch() -> dict:
-        import urllib.request
-        api = "https://api.github.com/repos/jaycestart/sky-arena"
-        def get(p):
-            r = urllib.request.Request(api + p, headers={
-                "Accept": "application/vnd.github+json",
-                "User-Agent": "sky-arena-company-board"})
-            with urllib.request.urlopen(r, timeout=12) as f:
-                return json.load(f)
-        runs = get("/actions/runs?per_page=40").get("workflow_runs", [])
-        latest, seen = [], set()
-        for r in runs:
-            if r["name"] in seen or r["name"] == "keep-alive":
-                continue
-            seen.add(r["name"])
-            latest.append({"name": r["name"], "status": r["status"],
-                           "conclusion": r["conclusion"], "at": r["created_at"],
-                           "url": r["html_url"]})
-        issues = [{"n": i["number"], "title": i["title"], "at": i["created_at"],
-                   "url": i["html_url"],
-                   "labels": [l["name"] for l in i.get("labels", [])]}
-                  for i in get("/issues?state=open&per_page=15")
-                  if "pull_request" not in i]
-        prs = [{"n": p["number"], "title": p["title"], "at": p["created_at"],
-                "url": p["html_url"]} for p in get("/pulls?state=open&per_page=10")]
-        commits = [{"msg": c["commit"]["message"].split("\n")[0],
-                    "at": c["commit"]["author"]["date"], "url": c["html_url"]}
-                   for c in get("/commits?per_page=8")]
-        return {"staff": latest, "issues": issues, "prs": prs, "commits": commits}
-
-    try:
-        data = await asyncio.get_running_loop().run_in_executor(None, fetch)
-        _CO["data"], _CO["at"] = data, now
-        return dict(data, cached=0)
-    except Exception as e:
-        if _CO["data"] is not None:
-            # 마지막으로 받아둔 것을 계속 보여준다. 몇 분 묵은 정보가
-            # 빈 화면보다 낫다.
-            return dict(_CO["data"], cached=round(now - _CO["at"]), stale=str(e))
-        return {"staff": [], "issues": [], "prs": [], "commits": [],
-                "error": f"GitHub 에서 자료를 받지 못했습니다: {e}"}
 
 
 def lan_ip() -> str:

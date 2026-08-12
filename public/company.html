@@ -120,11 +120,12 @@
 </footer>
 
 <script>
-// 자료는 우리 서버가 GitHub 에서 받아 10분간 들고 있는 것을 읽는다.
-// 브라우저가 GitHub 를 직접 부르면 IP 하나당 시간당 60회 제한에 걸린다 —
-// 현황판은 한 번 열 때 4회를 쓰므로 창 하나만 켜둬도 한 시간이면 바닥나고
-// 실제로 화면 전체가 "GitHub 403" 만 띄웠다. 서버가 받아 나눠주면 보는
-// 사람이 몇 명이든 시간당 24회면 끝난다.
+// 자료는 직원들이 근무할 때마다 저장소에 써두는 파일 하나를 읽는다.
+// GitHub API 를 부르지 않는다 — 로그인 없이 부르면 IP 당 시간당 60회가
+// 전부라 화면이 통째로 "GitHub 403" 이 됐고(사용자 화면으로 확인), 서버가
+// 대신 받게 해봤지만 Render 의 IP 는 다른 서비스와 공유돼 우리가 한 번도
+// 부르기 전에 이미 한도가 차 있었다. 정적 파일은 한도도 열쇠도 없다.
+// 대신 정보는 마지막 근무 시점 기준이고 실시간이 아니다.
 const el = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
   ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
@@ -155,8 +156,8 @@ async function load() {
   el('clock').textContent = new Date().toLocaleString('ko-KR');
   let d;
   try {
-    const r = await fetch('/company.json', { cache: 'no-store' });
-    if (!r.ok) throw new Error('서버 응답 ' + r.status);
+    const r = await fetch('/company.json?_=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('현황 파일을 읽지 못했습니다 (' + r.status + ')');
     d = await r.json();
   } catch (e) {
     for (const id of ['staff', 'issues', 'prs', 'commits'])
@@ -197,11 +198,11 @@ async function load() {
     row('#93a3bd', `<a href="${c.url}" target="_blank">${esc(c.msg)}</a>`, ago(c.at))
   ).join('');
 
-  const note = d.stale ? `GitHub 응답이 없어 ${d.cached}초 전 자료를 보여줍니다`
-             : d.cached ? `${Math.round(d.cached / 60)}분 전 받아둔 자료입니다` : '방금 받았습니다';
-  el('cacheNote').textContent = note;
+  const last = d.staff.length ? ago(d.staff[0].at) : '기록 없음';
+  el('cacheNote').textContent =
+    `마지막 근무 ${last} 기준입니다. 직원이 일할 때마다 갱신됩니다.`;
 }
 
 load();
-setInterval(load, 120000);
+setInterval(load, 120000);   // 2분
 </script>

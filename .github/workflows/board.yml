@@ -1,0 +1,106 @@
+# 현황판 담당 — 회사 현황을 정적 파일 하나로 써서 저장소에 올립니다.
+#
+# ── 왜 이렇게 하나 ──────────────────────────────────────────────
+# 처음에는 현황판(브라우저)이 GitHub API 를 직접 불렀습니다. 로그인 없이
+# 부르면 IP 하나당 시간당 60회가 전부인데, 한 번 열 때 4회를 쓰고 5분마다
+# 다시 불러서 금방 바닥났습니다. 화면 전체가 "GitHub 403" 만 떴습니다.
+#
+# 다음으로 서버가 대신 받아 캐시하게 했는데 이것도 실패했습니다. Render 의
+# IP 는 다른 서비스들과 공유돼서 우리가 한 번도 부르기 전에 이미 한도가
+# 차 있었습니다.
+#
+# 그래서 GitHub API 를 아예 부르지 않기로 했습니다. 직원이 근무할 때마다
+# 여기서 현황을 파일로 써서 저장소에 올리면, 현황판은 그냥 정적 파일 하나를
+# 읽습니다. 한도도 열쇠도 필요 없습니다. 여기서 쓰는 gh 명령은 Actions 가
+# 주는 토큰을 쓰므로 시간당 1000회까지 됩니다.
+#
+# 대신 현황판의 정보는 마지막 근무 시점 기준입니다. 실시간이 아닙니다.
+name: 현황판
+
+on:
+  workflow_run:
+    workflows: ["비서", "정비공", "측정원", "성능 감시원", "버그 사냥꾼", "실력 균형 검사원", "개발자"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: board
+  cancel-in-progress: true
+
+jobs:
+  write:
+    name: 현황 파일 갱신
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 현황을 파일로 쓴다
+        run: |
+          python - <<'PY' > public/company.json
+          import json, os, subprocess
+
+          def gh(args):
+              r = subprocess.run(["gh"] + args, capture_output=True, text=True)
+              return json.loads(r.stdout) if r.returncode == 0 and r.stdout.strip() else []
+
+          runs = gh(["run", "list", "--limit", "60", "--json",
+                     "workflowName,status,conclusion,createdAt,url"])
+          staff, seen = [], set()
+          for r in runs:
+              n = r["workflowName"]
+              if n in seen or n in ("keep-alive", "현황판"):
+                  continue
+              seen.add(n)
+              staff.append({"name": n, "status": r["status"],
+                            "conclusion": r["conclusion"],
+                            "at": r["createdAt"], "url": r["url"]})
+
+          issues = [{"n": i["number"], "title": i["title"], "at": i["createdAt"],
+                     "url": i["url"], "labels": [l["name"] for l in i["labels"]]}
+                    for i in gh(["issue", "list", "--state", "open", "--limit", "15",
+                                 "--json", "number,title,createdAt,url,labels"])]
+
+          prs = [{"n": p["number"], "title": p["title"], "at": p["createdAt"],
+                  "url": p["url"]}
+                 for p in gh(["pr", "list", "--state", "open", "--limit", "10",
+                              "--json", "number,title,createdAt,url"])]
+
+          log = subprocess.run(
+              ["git", "log", "-8", "--pretty=%s%x1f%aI%x1f%H"],
+              capture_output=True, text=True).stdout.strip().split("\n")
+          commits = []
+          for line in log:
+              if not line.strip():
+                  continue
+              msg, at, sha = line.split("\x1f")
+              commits.append({"msg": msg, "at": at,
+                              "url": f"https://github.com/jaycestart/sky-arena/commit/{sha}"})
+
+          print(json.dumps({"staff": staff, "issues": issues,
+                            "prs": prs, "commits": commits},
+                           ensure_ascii=False, indent=1))
+          PY
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: 바뀐 게 있을 때만 올린다
+        run: |
+          # 내용이 같으면 올리지 않습니다. 안 그러면 근무할 때마다 커밋이
+          # 쌓이고 그때마다 배포가 돌아 저장소가 지저분해집니다.
+          if git diff --quiet public/company.json; then
+            echo "현황이 그대로입니다. 올리지 않습니다."
+            exit 0
+          fi
+          git config user.name  "현황판"
+          git config user.email "actions@github.com"
+          git add public/company.json
+          git commit -m "현황판 갱신 — $(TZ=Asia/Seoul date '+%m월 %d일 %H:%M')"
+          # 다른 직원이 먼저 올렸을 수 있으니 한 번 당겨서 다시 시도합니다
+          git pull --rebase origin main || git rebase --abort
+          git push origin HEAD:main
