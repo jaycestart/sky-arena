@@ -1,53 +1,53 @@
 {
  "staff": [
   {
-   "name": "개발자",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-12T15:54:55Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614878655"
-  },
-  {
    "name": "정비공",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-12T15:54:54Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614878408"
+   "status": "queued",
+   "conclusion": "",
+   "at": "2026-08-12T16:07:06Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31615968033"
   },
   {
-   "name": "측정원",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-12T15:54:33Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614846996"
-  },
-  {
-   "name": "실력 균형 검사원",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-12T15:54:33Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614846948"
+   "name": "개발자",
+   "status": "queued",
+   "conclusion": "",
+   "at": "2026-08-12T16:07:05Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31615966742"
   },
   {
    "name": "버그 사냥꾼",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-12T15:54:33Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614846924"
+   "at": "2026-08-12T16:06:47Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31615940536"
   },
   {
-   "name": "검증",
+   "name": "측정원",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-12T15:54:33Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614846880"
+   "at": "2026-08-12T16:06:47Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31615940534"
   },
   {
    "name": "성능 감시원",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-12T15:54:33Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31614846869"
+   "at": "2026-08-12T16:06:47Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31615940532"
+  },
+  {
+   "name": "검증",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T16:06:47Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31615940505"
+  },
+  {
+   "name": "실력 균형 검사원",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-12T16:06:47Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31615940504"
   },
   {
    "name": "비서",
@@ -89,9 +89,44 @@
  "prs": [],
  "commits": [
   {
+   "msg": "현황판 커밋 목록이 한 줄만 나오던 것 수리",
+   "at": "2026-08-13T01:06:35+09:00",
+   "url": "https://github.com/jaycestart/sky-arena/commit/4c376275489fa33d2a94cf92958f366b06148c53"
+  },
+  {
+   "msg": "현황판 갱신 — 08월 13일 00:55",
+   "at": "2026-08-12T15:55:26Z",
+   "url": "https://github.com/jaycestart/sky-arena/commit/6d9bc14fd3ace76f7a9b2eb6e5dbd1d82337296f"
+  },
+  {
    "msg": "현황판 갱신 — 08월 13일 00:54",
    "at": "2026-08-12T15:54:57Z",
    "url": "https://github.com/jaycestart/sky-arena/commit/068d56894f5b943910c086397a0ac123f2c23e6c"
+  },
+  {
+   "msg": "현황판 403 완전 해결 — GitHub API 를 아예 부르지 않는다",
+   "at": "2026-08-13T00:54:28+09:00",
+   "url": "https://github.com/jaycestart/sky-arena/commit/962204e7d1c910275061145b2c8bc5af13b5d49b"
+  },
+  {
+   "msg": "찌꺼기 코드 일소 + 현황판 403 수리",
+   "at": "2026-08-13T00:46:57+09:00",
+   "url": "https://github.com/jaycestart/sky-arena/commit/73816725c498b3d09e1da71d67f954b676f7790f"
+  },
+  {
+   "msg": "개발자 배치 — 코드를 실제로 새로 쓰는 직원. 열쇠는 무료",
+   "at": "2026-08-13T00:37:03+09:00",
+   "url": "https://github.com/jaycestart/sky-arena/commit/39810aee9b8d82ad3159bc620e0b107b0d805054"
+  },
+  {
+   "msg": "정비공 자동 수리 — 미사일 상한을 380발에서 186발로 낮췄습니다. 화면 정보량이 기준 안(8.3KB)으로 들어왔습니다.",
+   "at": "2026-08-12T15:28:07Z",
+   "url": "https://github.com/jaycestart/sky-arena/commit/85aa881a07e3c9258402014ee75b08d984054948"
+  },
+  {
+   "msg": "두 번째 고장 주입 — 정비공이 끝까지 초록불로 끝나는지 확인",
+   "at": "2026-08-13T00:27:46+09:00",
+   "url": "https://github.com/jaycestart/sky-arena/commit/0d0d50338369f798e34b3b6534caecf43f959bfe"
   }
  ]
 }
