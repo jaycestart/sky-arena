@@ -71,6 +71,18 @@ jobs:
       - name: 열쇠가 안 되면 알린다
         if: steps.key.outcome != 'success'
         run: |
+          # 어떤 이름으로 넣었는지 알려준다. **이름만** 본다 — 값은 파이썬
+          # 안에서도 꺼내지 않는다. 이름이 한 글자만 달라도 워크플로에서는
+          # 아예 없는 것으로 보이는데, 그러면 사람은 넣었다고 생각하고
+          # 나는 없다고 말하는 상태로 서로 헤매게 된다.
+          NAMES=$(python -c "
+          import json, os
+          d = json.loads(os.environ['ALL_SECRETS'])
+          names = [k for k in d if k != 'github_token']
+          print(', '.join(sorted(names)) if names else '(하나도 없음)')
+          ")
+          echo "들어 있는 비밀값 이름: $NAMES"
+          echo "names=$NAMES" >> $GITHUB_ENV
           if [ "$(gh issue list --label 열쇠문제 --state open --json number --jq length)" != "0" ]; then
             echo "이미 알려두었습니다"; exit 0
           fi
@@ -82,6 +94,18 @@ jobs:
             echo
             echo "---"
             echo
+            echo "### 지금 저장소에 들어 있는 비밀값 이름"
+            echo
+            echo "\`$names\`"
+            echo
+            echo "개발자가 찾는 이름은 \`GEMINI_API_KEY\` 또는 \`GROQ_API_KEY\` 입니다."
+            echo "위 목록에 그 이름이 없으면 이름이 다르거나 다른 자리에 들어간 것입니다."
+            echo
+            echo "확인할 곳: Settings > Secrets and variables > **Actions** > **Repository secrets**"
+            echo "(Environment secrets 나 Codespaces secrets 에 넣으면 여기서 보이지 않습니다)"
+            echo
+            echo "---"
+            echo
             echo "다른 직원 여덟 명은 열쇠 없이 정상 근무 중입니다."
             echo "이 문제는 개발자 한 명에게만 해당합니다."
           } > /tmp/kbody.md
@@ -89,6 +113,7 @@ jobs:
             --label 열쇠문제 --body-file /tmp/kbody.md
         env:
           GH_TOKEN: ${{ github.token }}
+          ALL_SECRETS: ${{ toJSON(secrets) }}
 
       - name: 열쇠가 되면 지난 알림을 닫는다
         if: steps.key.outcome == 'success'
