@@ -1,0 +1,165 @@
+"""개발자의 머리 — 문제를 읽고 코드 수정안을 받아 적용한다.
+
+의존성 0 원칙을 지킨다. 파이썬 표준 라이브러리만 쓴다.
+
+무료 열쇠 두 곳을 지원한다. 있는 것을 골라 쓰고, 둘 다 없으면 아무것도
+하지 않는다(워크플로가 미리 걸러내지만 여기서도 한 번 더 본다).
+
+  GEMINI_API_KEY  https://aistudio.google.com/apikey
+  GROQ_API_KEY    https://console.groq.com/keys
+
+모델에게는 **파일 전체를 다시 써서 달라**고 요구한다. 조각 수정(diff)은
+공백 한 칸만 어긋나도 적용이 실패하는데, 실패를 사람이 확인해 줄 수 없는
+자동 운영에서는 통째로 받는 편이 훨씬 안전하다.
+"""
+
+import io
+import json
+import os
+import re
+import subprocess
+import sys
+import urllib.error
+import urllib.request
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# 개발자가 건드려도 되는 파일. 이 밖은 거부한다 — 워크플로 자신이나
+# 검증 스크립트를 고치게 두면 안전장치를 스스로 무력화할 수 있다.
+ALLOWED = ("server/game.py", "server/flightmath.py",
+           "public/js/world.js", "public/js/hud.js", "public/js/input.js")
+MAX_CHANGED_LINES = 200
+
+
+def out(key, val):
+    with io.open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+        f.write(f"{key}={val}\n")
+
+
+def summary(text):
+    io.open("/tmp/summary.txt", "w", encoding="utf-8").write(text)
+    print(text)
+
+
+def give_up(reason):
+    summary(reason)
+    out("patched", "no")
+    sys.exit(0)
+
+
+def ask(prompt):
+    """무료 열쇠로 모델을 부른다. 응답 본문(문자열)을 돌려준다."""
+    gem, groq = os.environ.get("GEMINI_API_KEY"), os.environ.get("GROQ_API_KEY")
+    if gem:
+        url = ("https://generativelanguage.googleapis.com/v1beta/models/"
+               "gemini-2.0-flash:generateContent?key=" + gem)
+        body = {"contents": [{"parts": [{"text": prompt}]}],
+                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 8192}}
+        req = urllib.request.Request(url, json.dumps(body).encode(),
+                                     {"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=180) as r:
+            d = json.load(r)
+        return d["candidates"][0]["content"]["parts"][0]["text"]
+    if groq:
+        req = urllib.request.Request(
+            "https://api.groq.com/openai/v1/chat/completions",
+            json.dumps({"model": "llama-3.3-70b-versatile",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.2, "max_tokens": 8192}).encode(),
+            {"Content-Type": "application/json", "Authorization": "Bearer " + groq})
+        with urllib.request.urlopen(req, timeout=180) as r:
+            d = json.load(r)
+        return d["choices"][0]["message"]["content"]
+    give_up("열쇠가 없어 모델을 부르지 못했습니다.")
+
+
+def read(rel):
+    return io.open(os.path.join(ROOT, rel), encoding="utf-8").read()
+
+
+def main():
+    issue = io.open("/tmp/issue.txt", encoding="utf-8").read()
+
+    # 1단계 — 어느 파일을 봐야 하는지 먼저 묻는다. 전부 보내면 무료 한도를
+    # 넘기고, 모델이 엉뚱한 곳을 고칠 위험도 커진다.
+    pick = ask(
+        "너는 SKY ARENA 라는 브라우저 3D 공중전 게임을 고치는 개발자다.\n"
+        "아래 문제를 고치려면 어느 파일을 봐야 하는가?\n\n"
+        f"{issue}\n\n"
+        f"고를 수 있는 파일: {', '.join(ALLOWED)}\n\n"
+        "파일 이름 하나만 답하라. 다른 말은 쓰지 마라. "
+        "이 목록으로 고칠 수 없는 문제면 NONE 이라고만 답하라."
+    ).strip()
+
+    target = next((a for a in ALLOWED if a in pick), None)
+    if not target:
+        give_up("이 문제는 개발자가 건드릴 수 있는 파일로는 고칠 수 없다고 판단했습니다.\n\n"
+                f"모델의 답: {pick[:300]}")
+
+    src = read(target)
+    if len(src) > 120000:
+        give_up(f"{target} 이 너무 커서(무료 한도) 한 번에 다루지 못했습니다.")
+
+    # 2단계 — 파일 전체를 다시 써서 받는다.
+    ans = ask(
+        "너는 SKY ARENA 라는 브라우저 3D 공중전 게임을 고치는 개발자다.\n"
+        "아래 문제를 고쳐라.\n\n"
+        f"=== 문제 ===\n{issue}\n\n"
+        f"=== {target} 전체 ===\n{src}\n\n"
+        "=== 반드시 지킬 것 ===\n"
+        "- 외부 라이브러리를 쓰지 마라. 파이썬 표준 라이브러리와 순수 자바스크립트만 쓴다.\n"
+        "- 서버(game.py)의 물리 공식을 고치면 클라이언트(world.js)의 예측 공식도\n"
+        "  같은 값이 나와야 한다. 한쪽만 고치면 화면이 떨린다.\n"
+        "- 조종·무기·물리를 바꾸면 봇에도 같이 적용해야 한다.\n"
+        "- 꼭 필요한 곳만 최소한으로 고쳐라. 200줄 넘게 바뀌면 거부된다.\n"
+        "- 한국어 주석으로 왜 그렇게 고쳤는지 남겨라.\n"
+        "- 확실하지 않으면 고치지 마라. 추측으로 고치는 것보다 못 고치는 편이 낫다.\n\n"
+        "=== 답하는 형식 ===\n"
+        "고칠 수 있으면 이렇게만 답하라:\n"
+        "SUMMARY: (무엇을 왜 고쳤는지 두세 문장, 한국어)\n"
+        "```\n(파일 전체 내용)\n```\n\n"
+        "고칠 수 없거나 확신이 없으면 이렇게만 답하라:\n"
+        "CANNOT: (왜 못 고치는지, 한국어)"
+    )
+
+    if "CANNOT" in ans[:400] and "```" not in ans:
+        give_up("개발자가 고치지 못했습니다.\n\n" + ans.split("CANNOT", 1)[-1].strip()[:800])
+
+    m = re.search(r"```(?:python|javascript|js)?\n(.*?)```", ans, re.S)
+    if not m:
+        give_up("모델이 형식에 맞게 답하지 않아 적용하지 않았습니다.")
+    new = m.group(1)
+
+    sm = re.search(r"SUMMARY:\s*(.+?)(?:\n```|$)", ans, re.S)
+    what = sm.group(1).strip() if sm else "(요약 없음)"
+
+    if len(new) < len(src) * 0.5:
+        give_up(f"모델이 돌려준 내용이 원본의 절반도 안 됩니다({len(new)} vs {len(src)}). "
+                "잘려서 온 것으로 보여 적용하지 않았습니다.")
+
+    io.open(os.path.join(ROOT, target), "w", encoding="utf-8", newline="\n").write(new)
+
+    # 3단계 — 바뀐 양과 범위를 확인한다.
+    diff = subprocess.run(["git", "diff", "--numstat"], cwd=ROOT,
+                          capture_output=True, text=True).stdout.strip()
+    changed = 0
+    for line in diff.splitlines():
+        a, b, path = line.split("\t")
+        if path not in ALLOWED:
+            subprocess.run(["git", "checkout", "--", "."], cwd=ROOT)
+            give_up(f"허용되지 않은 파일({path})을 건드려 전부 되돌렸습니다.")
+        changed += int(a or 0) + int(b or 0)
+
+    if changed == 0:
+        give_up("모델이 아무것도 바꾸지 않았습니다.")
+    if changed > MAX_CHANGED_LINES:
+        subprocess.run(["git", "checkout", "--", "."], cwd=ROOT)
+        give_up(f"{changed}줄이나 바뀌어 한 번에 반영하기에는 위험합니다. 되돌렸습니다. "
+                "사람이 나눠서 봐야 합니다.")
+
+    summary(f"{what}\n\n고친 파일: `{target}` ({changed}줄)")
+    out("patched", "yes")
+
+
+if __name__ == "__main__":
+    main()
