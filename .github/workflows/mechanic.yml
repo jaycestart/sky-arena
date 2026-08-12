@@ -20,8 +20,11 @@
 name: 정비공
 
 on:
+  # 성능 감시원 하나만 계기로 삼습니다. 세 팀을 다 걸었더니 같은 순간에
+  # 정비공이 셋 깨어나 둘이 대기 중 취소됐습니다. 정비공이 돌릴 수 있는
+  # 손잡이는 지금 성능 지표뿐이라 나머지는 깨울 이유가 없습니다.
   workflow_run:
-    workflows: ["성능 감시원", "측정원", "실력 균형 검사원"]
+    workflows: ["성능 감시원"]
     types: [completed]
   workflow_dispatch:
 
@@ -140,35 +143,53 @@ jobs:
           print("verify ok")
           PY
 
+      # 반영과 뒷정리를 나눕니다. 처음에는 한 단계에 몰아넣었더니 수리와
+      # 반영이 다 끝난 뒤 뒷정리에서 넘어져 실행 전체가 실패로 찍혔습니다.
+      # 고쳐서 올린 것이 사실인데 실패로 보이면 사람이 잘못 판단합니다.
+      # 어디서 넘어졌는지 알 수 있게 단계마다 표시를 남깁니다.
       - name: 통과했으면 바로 반영한다
         if: steps.fix.outputs.fixed == 'yes' && steps.verify.outcome == 'success'
         run: |
+          echo "::group::수리 내용 반영"
           git config user.name  "정비공"
           git config user.email "actions@github.com"
-          git add server/game.py
-          git commit -F - <<EOF
-          정비공 자동 수리 — ${{ steps.fix.outputs.what }}
+          git add server/game.py                    || { echo "실패지점: git add"; exit 1; }
+          {
+            echo "정비공 자동 수리 — ${{ steps.fix.outputs.what }}"
+            echo
+            echo "성능 감시원이 올린 경고를 보고 정비공이 스스로 고쳤습니다."
+            echo "사람의 결재를 거치지 않았으므로 올리기 전에 아래를 모두 확인했습니다."
+            echo
+            cat /tmp/worklog.md
+            echo
+            echo "검증: 문법 검사 통과. 봇 60초 전투에서 격추와 사망이 균형을 이루고"
+            echo "저절로 기울어짐 0도, 수직 기동 유지."
+          } > /tmp/msg.txt
+          git commit -F /tmp/msg.txt               || { echo "실패지점: git commit"; exit 1; }
+          git push origin HEAD:main                || { echo "실패지점: git push"; exit 1; }
+          echo "반영 완료"
+          echo "::endgroup::"
 
-          성능 감시원이 올린 경고를 보고 정비공이 스스로 고쳤습니다.
-          사람의 결재를 거치지 않았으므로, 올리기 전에 아래를 모두 확인했습니다.
-
-          $(cat /tmp/worklog.md)
-
-          검증: 문법 검사 통과, 봇 60초 전투에서 격추와 사망이 균형을 이루고
-          저절로 기울어짐 0도, 수직 기동 유지.
-          EOF
-          git push origin HEAD:main
-          # 고쳐졌으니 관련 경고를 닫는다
+      - name: 고쳐진 경고를 닫는다
+        # 뒷정리라 실패해도 수리 자체를 실패로 만들지 않습니다.
+        continue-on-error: true
+        if: steps.fix.outputs.fixed == 'yes' && steps.verify.outcome == 'success'
+        run: |
+          {
+            echo "정비공이 자동으로 고쳤습니다."
+            echo
+            echo "${{ steps.fix.outputs.what }}"
+            echo
+            cat /tmp/worklog.md
+            echo
+            echo "검증을 통과해 곧바로 반영했습니다. 이 문제는 닫습니다."
+          } > /tmp/comment.md
           for n in $(gh issue list --label perf --state open --json number --jq '.[].number'); do
-            gh issue comment "$n" --body "정비공이 자동으로 고쳤습니다.
-
-          ${{ steps.fix.outputs.what }}
-
-          $(cat /tmp/worklog.md)
-
-          검증을 통과해 main 에 바로 반영했습니다. 이 문제는 닫습니다."
-            gh issue close "$n"
+            echo "닫는 중: #$n"
+            gh issue comment "$n" --body-file /tmp/comment.md || echo "  댓글 실패 #$n"
+            gh issue close "$n"                               || echo "  닫기 실패 #$n"
           done
+          echo "뒷정리 완료"
         env:
           GH_TOKEN: ${{ github.token }}
 
