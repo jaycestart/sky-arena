@@ -14,7 +14,15 @@
 # 읽습니다. 한도도 열쇠도 필요 없습니다. 여기서 쓰는 gh 명령은 Actions 가
 # 주는 토큰을 쓰므로 시간당 1000회까지 됩니다.
 #
-# 대신 현황판의 정보는 마지막 근무 시점 기준입니다. 실시간이 아닙니다.
+# ── 밀어올릴 때 충돌하던 문제 ───────────────────────────────────
+# 처음에는 파일을 쓴 뒤 커밋하고 rebase 해서 올렸는데, 매번 실패했습니다.
+# 자기가 지난번에 올린 company.json 과 이번에 쓴 company.json 이 같은 줄을
+# 건드려 rebase 가 충돌하고, 그러면 abort 하고 뒤처진 상태로 push 해서
+# 거절당했습니다. 그 결과 현황판이 다섯 시간 동안 멈춰 있었습니다.
+#
+# 지금은 순서를 바꿨습니다. 파일을 임시로 만들어 두고 → 최신 main 으로
+# 완전히 맞춘 뒤 → 그 위에 덮어씁니다. 이 파일은 매번 통째로 새로 만드는
+# 것이라 남의 수정을 덮어쓸 걱정이 없어서, 충돌이라는 개념 자체가 없어집니다.
 name: 현황판
 
 on:
@@ -38,8 +46,7 @@ jobs:
     name: 현황 파일 갱신
     runs-on: ubuntu-latest
     steps:
-      # 기본 checkout 은 커밋 하나만 가져온다. 그러면 최근 작업 목록이
-      # 한 줄만 나온다(실제로 그랬다). 전체 이력이 필요하다.
+      # 커밋 하나만 가져오면 최근 작업 목록이 한 줄만 나온다(실제로 그랬다).
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
@@ -47,7 +54,6 @@ jobs:
         id: recent
         run: |
           # 직원 일곱이 몇 초 차이로 끝나면 현황판이 그만큼 커밋한다.
-          # 실제로 00:54 와 00:55 에 연달아 올라갔고, 그때마다 배포가 돈다.
           # 마지막 갱신이 10분 안이면 넘어간다.
           LAST=$(git log -1 --format=%ct --grep="현황판 갱신" || echo 0)
           NOW=$(date +%s)
@@ -58,11 +64,11 @@ jobs:
             echo "skip=no" >> $GITHUB_OUTPUT
           fi
 
-      - name: 현황을 파일로 쓴다
+      - name: 현황을 임시 파일로 쓴다
         if: steps.recent.outputs.skip == 'no'
         run: |
-          python - <<'PY' > public/company.json
-          import json, os, subprocess
+          python - <<'PY' > /tmp/company.json
+          import json, subprocess
 
           def gh(args):
               r = subprocess.run(["gh"] + args, capture_output=True, text=True)
@@ -90,9 +96,8 @@ jobs:
                  for p in gh(["pr", "list", "--state", "open", "--limit", "10",
                               "--json", "number,title,createdAt,url"])]
 
-          log = subprocess.run(
-              ["git", "log", "-8", "--pretty=%s%x1f%aI%x1f%H"],
-              capture_output=True, text=True).stdout.strip().split("\n")
+          log = subprocess.run(["git", "log", "-8", "--pretty=%s%x1f%aI%x1f%H"],
+                               capture_output=True, text=True).stdout.strip().split("\n")
           commits = []
           for line in log:
               if not line.strip():
@@ -105,22 +110,32 @@ jobs:
                             "prs": prs, "commits": commits},
                            ensure_ascii=False, indent=1))
           PY
+          echo "쓴 크기: $(wc -c < /tmp/company.json) 바이트"
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: 바뀐 게 있을 때만 올린다
+      - name: 최신 main 위에 덮어쓰고 올린다
         if: steps.recent.outputs.skip == 'no'
         run: |
-          # 내용이 같으면 올리지 않습니다. 안 그러면 근무할 때마다 커밋이
-          # 쌓이고 그때마다 배포가 돌아 저장소가 지저분해집니다.
-          if git diff --quiet public/company.json; then
-            echo "현황이 그대로입니다. 올리지 않습니다."
-            exit 0
-          fi
           git config user.name  "현황판"
           git config user.email "actions@github.com"
-          git add public/company.json
-          git commit -m "현황판 갱신 — $(TZ=Asia/Seoul date '+%m월 %d일 %H:%M')"
-          # 다른 직원이 먼저 올렸을 수 있으니 한 번 당겨서 다시 시도합니다
-          git pull --rebase origin main || git rebase --abort
-          git push origin HEAD:main
+          # 세 번까지 다시 시도한다. 다른 직원이 그 사이에 올렸을 수 있다.
+          for try in 1 2 3; do
+            git fetch -q origin main
+            git reset -q --hard origin/main       # 우리 커밋을 버리고 최신에 맞춘다
+            cp /tmp/company.json public/company.json
+            if git diff --quiet public/company.json; then
+              echo "현황이 그대로입니다. 올리지 않습니다."
+              exit 0
+            fi
+            git add public/company.json
+            git commit -q -m "현황판 갱신 — $(TZ=Asia/Seoul date '+%m월 %d일 %H:%M')"
+            if git push -q origin HEAD:main 2>/dev/null; then
+              echo "올렸습니다 (${try}번째 시도)"
+              exit 0
+            fi
+            echo "${try}번째 시도 실패 — 다른 직원이 먼저 올린 것 같습니다. 다시 맞춥니다."
+            sleep 3
+          done
+          echo "세 번 다 실패했습니다."
+          exit 1

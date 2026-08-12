@@ -78,10 +78,11 @@ jobs:
               io.open("game.py","w",encoding="utf-8",newline="\n").write(s2)
 
           BUDGET = 10240
-          log, fixed, gave_up = [], None, None
+          log, fixed, gave_up, healthy = [], None, None, False
 
           size = snapshot_size()
           if size <= BUDGET:
+              healthy = True
               log.append(f"화면 정보량 {size/1024:.1f}KB — 기준 안입니다. 손댈 것이 없습니다.")
           else:
               knob = read_knob("maxMissiles")
@@ -110,6 +111,8 @@ jobs:
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
               f.write(f"fixed={'yes' if fixed else 'no'}\n")
               f.write(f"gaveup={'yes' if gave_up else 'no'}\n")
+              f.write(f"healthy={'yes' if healthy else 'no'}\n")
+              f.write(f"size={size/1024:.1f}\n")
               f.write(f"what={fixed or gave_up or ''}\n")
           io.open("/tmp/worklog.md","w",encoding="utf-8").write("\n".join(log))
           if gave_up: io.open("/tmp/gaveup.md","w",encoding="utf-8").write(gave_up)
@@ -190,6 +193,34 @@ jobs:
             gh issue close "$n"                               || echo "  닫기 실패 #$n"
           done
           echo "뒷정리 완료"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      # 문제가 사라졌는데 경고만 남아 있는 경우를 치운다.
+      #
+      # 실제로 이 구멍 때문에 사장님이 "아직도 작동 안 해" 라고 했다. 화면
+      # 정보량 경고가 8시간째 열려 있었는데, 그 사이 정비공은 네 번 정상
+      # 실행됐다. 문제는 이미 해결됐고 정비공은 "고칠 게 없다"며 물러났을 뿐인데
+      # 아무도 그 경고를 닫아주지 않았다. 감시원도 같은 경고가 열려 있으면
+      # 새로 만들지 않으니, 한 번 열린 경고는 영원히 남는다.
+      #
+      # 고친 사람이 없어도 지표가 정상이면 닫는다. 경고는 지금 상태를
+      # 말해야지, 과거에 문제가 있었다는 기록으로 남으면 안 된다.
+      - name: 문제가 사라졌으면 남은 경고를 닫는다
+        if: steps.fix.outputs.healthy == 'yes'
+        run: |
+          OPEN=$(gh issue list --label perf --state open --json number --jq '.[].number')
+          [ -z "$OPEN" ] && { echo "열린 성능 경고가 없습니다."; exit 0; }
+          for n in $OPEN; do
+            echo "닫는 중: #$n"
+            gh issue comment "$n" --body "정비공이 확인했습니다. **이 문제는 해결되었습니다.**
+
+          현재 화면 정보량은 ${{ steps.fix.outputs.size }}KB 로 기준 10KB 안에 있습니다.
+
+          정비공이 직접 고친 것은 아니고, 그 사이 다른 작업으로 해결된 것으로 보입니다.
+          지표가 정상이므로 이 경고를 닫습니다. 다시 기준을 넘으면 감시원이 새로 알립니다." || true
+            gh issue close "$n" || true
+          done
         env:
           GH_TOKEN: ${{ github.token }}
 
