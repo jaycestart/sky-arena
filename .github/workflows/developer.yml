@@ -12,6 +12,11 @@
 #   GEMINI_API_KEY  ← https://aistudio.google.com/apikey  (무료, 카드 불필요)
 #   GROQ_API_KEY    ← https://console.groq.com/keys       (무료, 카드 불필요)
 #
+# 사장님이 실제로 넣은 이름은 GROQ_SKY_ARENA 였습니다. 이름을 바꾸시게 하는
+# 것보다 여기서 함께 받는 편이 낫습니다 — 사람이 저장소마다 알아보기 쉬운
+# 이름을 쓰는 것은 자연스러운 일이고, 그걸 도구에 맞추라고 요구할 이유가
+# 없습니다. GEMINI_SKY_ARENA 도 같이 받습니다.
+#
 # 열쇠가 없으면 아무 일도 하지 않고 조용히 물러납니다. 실패로 찍히지 않습니다.
 #
 # ── 안전장치 ────────────────────────────────────────────────────
@@ -63,8 +68,8 @@ jobs:
             cat /tmp/keycheck.md
           } >> "$GITHUB_STEP_SUMMARY"
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || secrets.GEMINI_SKY_ARENA }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || secrets.GROQ_SKY_ARENA }}
 
       # 점검 결과를 이슈로 남긴다. 근무 요약은 Actions 화면을 열어야 보이는데
       # 사장님은 현황판만 보신다. 열쇠가 안 되면 현황판에 뜨게 해야 한다.
@@ -110,8 +115,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           # 값은 쓰지 않는다. 비어 있는지 아닌지만 본다.
-          HAS_GEMINI: ${{ secrets.GEMINI_API_KEY != '' && 'y' || '' }}
-          HAS_GROQ: ${{ secrets.GROQ_API_KEY != '' && 'y' || '' }}
+          HAS_GEMINI: ${{ (secrets.GEMINI_API_KEY != '' || secrets.GEMINI_SKY_ARENA != '') && 'y' || '' }}
+          HAS_GROQ: ${{ (secrets.GROQ_API_KEY != '' || secrets.GROQ_SKY_ARENA != '') && 'y' || '' }}
 
       - name: 열쇠가 되면 지난 알림을 닫는다
         if: steps.key.outcome == 'success'
@@ -126,10 +131,9 @@ jobs:
       - name: 열쇠가 있는지, 맡길 일이 있는지 본다
         id: check
         run: |
-          if [ -z "${{ secrets.GEMINI_API_KEY }}" ] && [ -z "${{ secrets.GROQ_API_KEY }}" ]; then
-            echo "열쇠가 없습니다. 개발자는 대기합니다."
-            echo "go=no" >> $GITHUB_OUTPUT; exit 0
-          fi
+          # 열쇠가 있는지는 앞의 점검이 이미 확인했다. 여기서 비밀값을 다시
+          # 꺼내면 그 값이 셸 명령줄에 그대로 들어간다 — 필요도 없고 위험도
+          # 있는 일이라 하지 않는다. 점검 결과만 본다.
           if [ "${{ steps.key.outcome }}" != "success" ]; then
             echo "열쇠 점검을 통과하지 못했습니다. 일을 맡기지 않습니다."
             echo "go=no" >> $GITHUB_OUTPUT; exit 0
@@ -157,8 +161,8 @@ jobs:
           python .github/scripts/developer.py
         env:
           GH_TOKEN: ${{ github.token }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY || secrets.GEMINI_SKY_ARENA }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY || secrets.GROQ_SKY_ARENA }}
           ISSUE: ${{ steps.check.outputs.issue }}
 
       - name: 고친 것이 정말 멀쩡한지 확인한다
