@@ -2,15 +2,15 @@
  "staff": [
   {
    "name": "정비공",
-   "status": "in_progress",
-   "conclusion": "",
+   "status": "completed",
+   "conclusion": "success",
    "at": "2026-08-13T00:12:29Z",
    "url": "https://github.com/jaycestart/sky-arena/actions/runs/31653637116"
   },
   {
    "name": "개발자",
-   "status": "in_progress",
-   "conclusion": "",
+   "status": "completed",
+   "conclusion": "success",
    "at": "2026-08-13T00:12:28Z",
    "url": "https://github.com/jaycestart/sky-arena/actions/runs/31653636305"
   },
@@ -82,6 +82,11 @@
  "prs": [],
  "commits": [
   {
+   "msg": "현황판 갱신 — 08월 13일 09:12",
+   "at": "2026-08-13T00:12:37Z",
+   "url": "https://github.com/jaycestart/sky-arena/commit/4db4cb12b6b52b8276e1c01dacb3df0f44473aaf"
+  },
+  {
    "msg": "사장님이 쓰신 이름(GROQ_SKY_ARENA)을 그대로 받는다",
    "at": "2026-08-13T09:12:06+09:00",
    "url": "https://github.com/jaycestart/sky-arena/commit/da56030d21d766c2952e1317c8c8130c2a26ef7c"
@@ -115,11 +120,6 @@
    "msg": "현황판 갱신 — 08월 13일 09:00",
    "at": "2026-08-13T00:00:50Z",
    "url": "https://github.com/jaycestart/sky-arena/commit/646055e41acfa59612debf28b4660910192a26e8"
-  },
-  {
-   "msg": "열쇠가 어떤 이름으로 들어갔는지 알려준다",
-   "at": "2026-08-13T08:55:15+09:00",
-   "url": "https://github.com/jaycestart/sky-arena/commit/ad1174c00aac6b77ce1dde15d2f20b203b3c8242"
   }
  ]
 }
