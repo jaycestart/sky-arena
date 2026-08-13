@@ -257,6 +257,11 @@ class Plane:
         self.ab = False
         self.brake = False
         self.want_fire = False
+        # 마지막으로 입력을 받은 시각(app.py 가 갱신한다). 클라이언트의
+        # 전송 루프가 멈추면 마지막 입력이 붙잡혀 계속 발사되므로,
+        # 서버가 시간을 재서 스스로 풀어준다. 0 이면 아직 한 번도
+        # 받지 않은 것이고, 봇은 영원히 0 이라 이 검사를 건너뛴다.
+        self.last_input = 0.0
         self.want_missile = False
         self.want_flare = False
         self.weapon = ROCKET
@@ -479,6 +484,17 @@ class World:
 
         self._update_locks(dt)
 
+        # 입력이 끊긴 사람 기체는 손을 뗀 것으로 본다. 탭을 가리면 클라의
+        # 전송 루프(rAF)가 멈추는데, 그때 마지막 상태가 붙잡혀 계속 쏘던
+        # 문제를 막는다. 0.6초는 25Hz 전송 기준 열다섯 번을 놓친 것이라
+        # 잠깐의 끊김으로는 걸리지 않는다.
+        for p in self.planes.values():
+            if p.is_bot or p.last_input <= 0.0:
+                continue
+            if now - p.last_input > 0.6:
+                p.want_fire = p.want_missile = p.want_flare = False
+                p.c_pitch = p.c_yaw = p.c_roll = 0.0
+
         for p in self.planes.values():
             if not p.alive:
                 continue
@@ -506,9 +522,18 @@ class World:
         if best is None:
             return
         los = v_sub(tuple(best.pos), tuple(p.pos))
-        hdg = math.atan2(los[0], los[2])
-        pitch = math.asin(clamp(v_norm(los)[1], -0.5, 0.5))
-        p.q = q_from_heading(hdg, pitch)
+        # 자세의 원본은 hdg/pit/bnk 세 값이다. Plane.step 이 매 틱 이 셋에서
+        # q 를 새로 만들므로(q_hpb), q 만 갈아끼우면 다음 틱에 출격 방위로
+        # 되돌아간다 — 한 틱 동안 자세가 튀었다가 원복되고, 정작 적을 향하는
+        # 목적은 달성되지 않았다. 세 값을 고쳐야 한다.
+        #
+        # 부호에도 함정이 있었다. 옛 q_from_heading 은 Rx(+pitch) 라 양의
+        # pitch 가 기수를 **아래로** 내리는데, q_hpb 는 Rx(-pit) 로 위로 든다.
+        # asin 결과를 그대로 넣으면 위에 있는 적을 향해 기수를 아래로 돌린다.
+        p.hdg = wrap_pi(math.atan2(los[0], los[2]))
+        p.pit = math.asin(clamp(v_norm(los)[1], -0.5, 0.5))
+        p.bnk = 0.0
+        p.q = q_hpb(p.hdg, p.pit, p.bnk)
         speed = v_len(tuple(p.vel))
         f = fwd(p.q)
         p.vel = [f[0] * speed, f[1] * speed, f[2] * speed]

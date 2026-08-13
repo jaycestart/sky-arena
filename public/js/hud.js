@@ -1,7 +1,7 @@
 // 전투기 HUD — 2D 캔버스 오버레이.
 // 피치 사다리 · 속도/고도 테이프 · 방위 테이프 · 비행경로 지시자 ·
 // 기총 조준점(리드 계산) · 레이더 락온 · 경고
-import { quat, v3, clamp, terrainH } from './m3d.js';
+import { quat, v3, clamp } from './m3d.js';
 
 const GREEN = '#7dfba6';
 const AMBER = '#ffcc55';
@@ -261,11 +261,36 @@ export class Hud {
     // 넘어가면 탄이 조준점이 아니라 원뿔 경계로 나간다.
     const outside = aimOff > 1.15;
 
-    // 리드 마커: 목표를 맞히려면 기수를 향해야 할 지점(2회 반복 수렴)
+    // 리드 마커: 목표를 맞히려면 기수를 향해야 할 지점.
+    //
+    // 로켓은 등속이 아니다. 발사 후 burn 초 동안 thrust/mass 로 가속한다
+    // (game.py 의 WEAPONS[0]). 예전에는 t = range/muzzle 로 등속 가정을
+    // 했는데, 1000m 표적에서 등속 해는 1.11초, 실제 등가속 해는 0.776초라
+    // 리드가 43% 과다했다 — HUD 가 찍어 주는 곳으로 겨누면 표적을 앞질러
+    // 빗나갔다. 봇은 이미 등가속으로 계산하고 있었고(game.py _bot_think),
+    // 사람 쪽만 옛 식으로 남아 있었다.
+    //
+    // 그리고 반복문이 아무 일도 하지 않았다. 루프 안에서 t 를 다시
+    // range/muzzle 로 되돌려서 세 번 돌아도 한 번 돈 것과 결과가 같았다.
+    // 주석은 '2회 반복 수렴'이라 적혀 있었는데 수렴 절차 자체가 없었다.
     let lead = null, aligned = false;
     if (tgt && pip) {
-      let t = range / muzzle;
+      const spec0 = W.weapons?.[0];
+      const accel = spec0 ? spec0.thrust / spec0.mass : 1000;
+      const burn = spec0 ? spec0.burn : 1.2;
+      // 거리 d 를 나는 데 걸리는 시간. burn 안에 도달하면 등가속 해,
+      // 그 뒤로는 다 태우고 얻은 속도로 등속.
+      const flightTime = (d) => {
+        const dBurn = muzzle * burn + 0.5 * accel * burn * burn;
+        if (d <= dBurn) {
+          return (Math.sqrt(muzzle * muzzle + 2 * accel * d) - muzzle) / accel;
+        }
+        return burn + (d - dBurn) / (muzzle + accel * burn);
+      };
+      let t = flightTime(range);
       let aim = null;
+      // 이번에는 진짜로 수렴시킨다 — 리드 지점이 옮겨지면 거리도 달라지고
+      // 거리가 달라지면 비행시간도 달라진다.
       for (let i = 0; i < 3; i++) {
         const rel = v3.sub(tgt.pos, me);
         const tv = tgt.vel || [0, 0, 0];
@@ -273,13 +298,18 @@ export class Hud {
                            [0, 0.5 * g * t, 0]);
         const dn = v3.norm(dir);
         aim = v3.add(me, v3.mul(dn, range));
-        t = range / muzzle;
+        t = flightTime(v3.len(v3.sub(aim, me)));
       }
       lead = this.scene.project(aim);
       // 탄이 조준 원 방향으로 나가므로, 원이 리드 지점에 닿으면 명중이다
       if (lead) {
-        const spec0 = W.weapons?.[0];
-        const maxR = spec0 ? spec0.muzzle * spec0.life : 2880;
+        // 사거리도 등속으로 잡아 6300m 로 계산하고 있었다. 실제 로켓은
+        // 다 태운 뒤 muzzle + accel*burn 으로 나므로 12km 를 넘게 간다.
+        // 짧게 잡으면 맞는 거리인데도 '사거리 밖'이 떠서 쏘기를 망설이게 된다.
+        const vEnd = muzzle + accel * burn;
+        const maxR = spec0
+          ? muzzle * burn + 0.5 * accel * burn * burn + vEnd * (spec0.life - burn)
+          : 2880;
         // 원뿔 밖이면 탄이 조준점으로 나가지 않으므로 SHOOT 을 띄우면 거짓말이다
         aligned = !outside && range <= maxR
           && Math.hypot(lead[0] - pip[0], lead[1] - pip[1]) < 30;
@@ -406,13 +436,20 @@ export class Hud {
       }
       ctx.restore();
     }
-    // 락온 진행 표시
+    // 락온 진행 표시.
+    //
+    // 분모를 0.9 로 박아두고 있었는데 서버의 실제 lockTime 은 0.18 초다
+    // (game.py 의 WEAPONS[1]). 그래서 링은 최대 20% 까지만 차고 그 순간
+    // 락온이 끝나 사라졌다 — 사용자는 링이 채워지는 것을 평생 볼 수 없었다.
+    // 서버 제원을 클라가 숫자로 베껴 들고 있으면 이렇게 조용히 어긋난다.
+    // welcome 으로 내려온 값을 쓴다.
+    const lockT = W.weapons?.[1]?.lockTime || 0.18;
     if (s.lkt > 0 && !s.lk) {
       ctx.save();
       ctx.strokeStyle = AMBER;
       ctx.beginPath();
       ctx.arc(this.w / 2, this.h / 2, 60, -Math.PI / 2,
-              -Math.PI / 2 + Math.PI * 2 * clamp(s.lkt / 0.9, 0, 1));
+              -Math.PI / 2 + Math.PI * 2 * clamp(s.lkt / lockT, 0, 1));
       ctx.stroke();
       ctx.restore();
     }

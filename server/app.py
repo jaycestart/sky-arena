@@ -120,6 +120,19 @@ class Room:
 
             # 아무도 없으면 30초 뒤 방을 정리한다(기본 방은 유지)
             if not self.clients:
+                # 보낼 사람이 없어도 **반드시 비운다.** 예전에는 여기서 그냥
+                # continue 로 빠져나갔는데, 아래 132줄이 리스트를 비우는
+                # 유일한 곳이라 빈 방에서 이벤트가 무한히 쌓였다. 봇은 사람이
+                # 없어도 계속 싸우기 때문이다. 그러다 첫 사람이 들어오면 그동안
+                # 밀린 것이 한 틱에 전부 쏟아졌다 — 60초 놀면 299개(발사 183개),
+                # 2분이면 초당 73발. BACKLOG 에 '사람이 접속하면 발사가
+                # 폭증한다'고 적혀 있던 것의 정체가 이것이다.
+                #
+                # main 방은 위에서 정리되지 않으므로, 안 비우면 서버가 하루
+                # 놀았을 때 리스트가 수십만 개로 자란다. 메모리 누수이기도 했다.
+                w.joined.clear()
+                w.left.clear()
+                w.events.clear()
                 idle += dt
                 if idle > 30 and self.name != "main":
                     ROOMS.pop(self.name, None)
@@ -268,6 +281,16 @@ class Room:
             p.want_fire = bool(m.get("f"))
             p.want_missile = bool(m.get("ms"))
             p.want_flare = bool(m.get("fl"))
+            # 마지막으로 입력을 받은 시각. 클라이언트의 전송 루프는
+            # requestAnimationFrame 안에 있어서 탭을 가리면 멈춘다. 그러면
+            # 마지막 패킷의 상태가 그대로 붙잡혀, 좌클릭을 누른 채 탭을
+            # 전환하면 소켓이 끊길 때까지 0.42초마다 로켓이 계속 나갔다.
+            # 창을 벗어날 때 클라가 보내는 해제 신호도 그 루프에 실려 있어서
+            # 전달되지 못한다. 서버가 스스로 시간을 재는 수밖에 없다.
+            #
+            # 벽시계(time.time)가 아니라 **월드 시계**를 쓴다. 이 값을 재는
+            # 쪽(World.step)이 self.time 으로 판단하므로 같은 시계여야 한다.
+            p.last_input = self.world.time
             # 조준 방향(화면의 조준 원) — 없으면 기수 방향으로 쏜다
             aim = m.get("aim")
             if (isinstance(aim, list) and len(aim) == 3
