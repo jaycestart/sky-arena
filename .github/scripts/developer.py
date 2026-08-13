@@ -26,6 +26,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -99,6 +100,11 @@ def _post(url, body, headers, timeout=180):
 
 
 def ask(prompt, max_tokens=4096):
+    """모델을 부른다.
+
+    429(분당 한도 초과)는 기다리면 풀린다 — Groq 무료 한도는 분당으로
+    다시 채워진다. 한 번만 기다렸다 다시 해본다. 그래서 한 번 고치는 데
+    몇 분이 걸리지만, 공짜로 쓰는 대가치고는 싸다."""
     gem = os.environ.get("GEMINI_API_KEY")
     groq = os.environ.get("GROQ_API_KEY")
     errs = []
@@ -124,6 +130,23 @@ def ask(prompt, max_tokens=4096):
                            "Authorization": "Bearer " + groq})
                 print(f"[모델] Groq {model}")
                 return d["choices"][0]["message"]["content"]
+            except urllib.error.HTTPError as e:
+                if e.code == 429:
+                    print(f"[대기] {model} 분당 한도 — 70초 쉬었다 다시 합니다")
+                    time.sleep(70)
+                    try:
+                        d = _post("https://api.groq.com/openai/v1/chat/completions",
+                                  {"model": model,
+                                   "messages": [{"role": "user", "content": prompt}],
+                                   "temperature": 0.2, "max_tokens": max_tokens},
+                                  {"Content-Type": "application/json",
+                                   "Authorization": "Bearer " + groq})
+                        print(f"[모델] Groq {model} (한 번 쉬고)")
+                        return d["choices"][0]["message"]["content"]
+                    except Exception as e2:
+                        errs.append(f"Groq {model}: {_why(e2)}")
+                        continue
+                errs.append(f"Groq {model}: {_why(e)}")
             except Exception as e:
                 errs.append(f"Groq {model}: {_why(e)}")
     if not gem and not groq:
@@ -146,7 +169,7 @@ def code_of(ans):
 
 
 def main():
-    issue = io.open("/tmp/issue.txt", encoding="utf-8").read()[:4000]
+    issue = io.open("/tmp/issue.txt", encoding="utf-8").read()[:1800]
 
     # ── 1단계. 어느 파일의 어느 함수를 고칠지 고른다 ────────────────
     catalog = []
@@ -156,7 +179,7 @@ def main():
             src = read(rel)
         except OSError:
             continue
-        names = [n for n, a, b in B.blocks(rel, src)]
+        names = [n for n, a, b in B.blocks(rel, src) if not n.startswith("_v")]
         index[rel] = src
         if names:
             catalog.append(f"{rel}: {', '.join(names)}")
@@ -197,6 +220,8 @@ def main():
     # ── 2단계. 함수를 하나씩 오려 보내고 고쳐 받는다 ────────────────
     notes = []
     for rel, fn, a, b in targets:
+        # 분당 한도에 한꺼번에 부딪히지 않도록 부르기 사이에 숨을 돌린다.
+        time.sleep(25)
         seg = B.cut(index[rel], a, b)
         others = [f"{r}:{n}" for r, n, _, _ in targets if (r, n) != (rel, fn)]
         ans = ask(
