@@ -2,8 +2,8 @@
  "staff": [
   {
    "name": "정비공",
-   "status": "in_progress",
-   "conclusion": "",
+   "status": "completed",
+   "conclusion": "success",
    "at": "2026-08-13T00:02:16Z",
    "url": "https://github.com/jaycestart/sky-arena/actions/runs/31653036579"
   },
@@ -82,6 +82,11 @@
  "prs": [],
  "commits": [
   {
+   "msg": "현황판 갱신 — 08월 13일 09:02",
+   "at": "2026-08-13T00:02:22Z",
+   "url": "https://github.com/jaycestart/sky-arena/commit/df53a3444446a70ada811d8aae2473756c54b950"
+  },
+  {
    "msg": "개발자 열쇠 진단을 다시 돌린다",
    "at": "2026-08-13T09:01:53+09:00",
    "url": "https://github.com/jaycestart/sky-arena/commit/41d6b660d9e53e61eca3c612e37c7369425438a7"
@@ -115,11 +120,6 @@
    "msg": "개발자 열쇠 점검 추가 — 되는지 안 되는지 알 수 있게",
    "at": "2026-08-13T08:44:37+09:00",
    "url": "https://github.com/jaycestart/sky-arena/commit/c2bc7bc941b27f28cc443bb6cb4608a514757abf"
-  },
-  {
-   "msg": "현황판 갱신 — 08월 13일 08:39",
-   "at": "2026-08-12T23:39:59Z",
-   "url": "https://github.com/jaycestart/sky-arena/commit/6a54c0c6b05538b3dada34f67cbb0b2b90c918dd"
   }
  ]
 }
