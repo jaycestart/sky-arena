@@ -1,56 +1,65 @@
 {
  "staff": [
   {
-   "name": "정비공",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-13T00:26:54Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31654447323"
-  },
-  {
    "name": "개발자",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-13T00:26:53Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31654446286"
+   "at": "2026-08-13T00:32:15Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31654747845"
   },
   {
-   "name": "검증",
+   "name": "정비공",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-13T00:26:33Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31654427102"
-  },
-  {
-   "name": "성능 감시원",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-13T00:26:33Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31654427071"
-  },
-  {
-   "name": "실력 균형 검사원",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-13T00:26:33Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31654427034"
-  },
-  {
-   "name": "버그 사냥꾼",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-13T00:26:33Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31654427013"
+   "at": "2026-08-13T00:32:14Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31654746989"
   },
   {
    "name": "측정원",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-13T00:26:33Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31654427009"
+   "at": "2026-08-13T00:31:57Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31654730818"
+  },
+  {
+   "name": "실력 균형 검사원",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-13T00:31:57Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31654730797"
+  },
+  {
+   "name": "버그 사냥꾼",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-13T00:31:57Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31654730754"
+  },
+  {
+   "name": "성능 감시원",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-13T00:31:57Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31654730698"
+  },
+  {
+   "name": "검증",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-13T00:31:57Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31654730683"
   }
  ],
  "issues": [
+  {
+   "n": 7,
+   "title": "미사일이 화면 정보량의 82%를 먹고 있습니다 — 한 발당 크기를 줄여주세요",
+   "at": "2026-08-13T00:31:38Z",
+   "url": "https://github.com/jaycestart/sky-arena/issues/7",
+   "labels": [
+    "bughunt"
+   ]
+  },
   {
    "n": 4,
    "title": "일일보고 — 2026-08-13",
@@ -72,6 +81,16 @@
  ],
  "prs": [],
  "commits": [
+  {
+   "msg": "개발자 실전 시험 — 미사일 정보량 줄이기 과제를 맡긴다",
+   "at": "2026-08-13T09:31:51+09:00",
+   "url": "https://github.com/jaycestart/sky-arena/commit/860efdaddfcc761305e67e8624c21f7303056ac0"
+  },
+  {
+   "msg": "현황판 갱신 — 08월 13일 09:28",
+   "at": "2026-08-13T00:28:15Z",
+   "url": "https://github.com/jaycestart/sky-arena/commit/77dba87a55316b32dfaa985fa9f7c9d3a6b16cb2"
+  },
   {
    "msg": "현황판 커밋 쏟아짐을 제대로 막는다 — 건너뛰지 말고 기다린다",
    "at": "2026-08-13T09:26:21+09:00",
@@ -101,16 +120,6 @@
    "msg": "현황판 갱신 — 08월 13일 09:17",
    "at": "2026-08-13T00:17:01Z",
    "url": "https://github.com/jaycestart/sky-arena/commit/19f43ac6d2125715b9b40681dc13ccb0f00aa6c4"
-  },
-  {
-   "msg": "열쇠를 다시 넣으셨으니 개발자를 깨운다",
-   "at": "2026-08-13T09:16:28+09:00",
-   "url": "https://github.com/jaycestart/sky-arena/commit/cac9ffa57c413549aadf258c79483c5d439e513d"
-  },
-  {
-   "msg": "현황판 갱신 — 08월 13일 09:12",
-   "at": "2026-08-13T00:12:54Z",
-   "url": "https://github.com/jaycestart/sky-arena/commit/e713eccc1ca5a6851efbefc12a877ba203fe0933"
   }
  ]
 }
