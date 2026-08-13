@@ -87,6 +87,53 @@ jobs:
           sys.exit(0 if ok else 1)
           PY
 
+      - name: 서버가 보내는 칸 수와 클라가 읽는 칸 수가 맞는가
+        # 2026-08-13 에 실제로 게임이 망가진 자리다. 서버가 미사일을
+        # [속도, 방위각, 고도각] 으로 바꿔 보내는데 클라이언트는 여전히
+        # [vx, vy, vz] 로 읽어서 미사일이 엉뚱하게 날아갔다. 봇 전투 검증은
+        # 파이썬만 돌리므로 이 어긋남을 잡지 못한다. 여기서 잡는다.
+        run: |
+          cd server
+          python - <<'PY'
+          import random, re, sys
+          random.seed(5)
+          import game
+
+          w = game.World("proto")
+          for k in range(6):
+              w.add_player(f"P{k}", "falcon")
+          for _ in range(300):
+              for p in w.planes.values():
+                  p.want_fire = True
+                  p.want_missile = True
+              w.step(1 / 50)
+              w.events.clear()
+          snap = w.snapshot(next(iter(w.planes.values())), {})
+          cli = open("../public/js/world.js", encoding="utf-8").read()
+
+          ok = True
+          for key, pat in (("m",  r"s\.m\s*\|\|\s*\[\]\)\.map\(\(\[([^\]]*)\]"),
+                           ("fl", r"s\.fl\s*\|\|\s*\[\]\)\.map\(\(\[([^\]]*)\]"),
+                           ("rd", r"s\.rd\s*\|\|\s*\[\]\)\.map\(\(\[([^\]]*)\]")):
+              rows = snap.get(key) or []
+              if not rows:
+                  continue
+              m = re.search(pat, cli)
+              if not m:
+                  print(f"::error::world.js 가 '{key}' 를 읽는 곳을 찾지 못했다")
+                  ok = False
+                  continue
+              want = len(rows[0])
+              got = len([x for x in m.group(1).split(",") if x.strip()])
+              if want != got:
+                  print(f"::error::'{key}' 서버는 {want}칸을 보내는데 "
+                        f"클라는 {got}칸으로 읽는다 - 한쪽만 고쳤다")
+                  ok = False
+              else:
+                  print(f"  {key}: {want}칸 일치")
+          sys.exit(0 if ok else 1)
+          PY
+
   testpilot:
     name: 테스트 파일럿 — 봇만 60초 전투
     runs-on: ubuntu-latest

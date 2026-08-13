@@ -1041,10 +1041,7 @@ class World:
             vis.sort(key=lambda m: v_dot(v_sub(tuple(m.pos), vp), v_sub(tuple(m.pos), vp)))
             vis = vis[:cap]
         missiles = [[m.id, round(m.pos[0]), round(m.pos[1]), round(m.pos[2]),
-                     round(v_len(m.vel) / 100),  # 속도의 크기만 보내고, 100m 단위로 줄임
-                     round(math.atan2(m.vel[1], m.vel[0]) * 180 / math.pi),  # 방향은 속도의 방향으로 계산
-                     round(math.asin(m.vel[2] / v_len(m.vel)) * 180 / math.pi),  # 방향은 속도의 방향으로 계산
-                     m.owner]
+                     round(m.vel[0]), round(m.vel[1]), round(m.vel[2]), m.owner]
                     for m in vis]
         flares = [[round(f.pos[0], 1), round(f.pos[1], 1), round(f.pos[2], 1),
                    round(f.life, 1)] for f in self.flares if near(f)]
