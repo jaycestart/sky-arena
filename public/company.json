@@ -2,8 +2,8 @@
  "staff": [
   {
    "name": "개발자",
-   "status": "in_progress",
-   "conclusion": "",
+   "status": "completed",
+   "conclusion": "success",
    "at": "2026-08-13T05:23:59Z",
    "url": "https://github.com/jaycestart/sky-arena/actions/runs/31670185372"
   },
@@ -59,15 +59,6 @@
  ],
  "issues": [
   {
-   "n": 7,
-   "title": "미사일이 화면 정보량의 82%를 먹고 있습니다 — 한 발당 크기를 줄여주세요",
-   "at": "2026-08-13T00:31:38Z",
-   "url": "https://github.com/jaycestart/sky-arena/issues/7",
-   "labels": [
-    "bughunt"
-   ]
-  },
-  {
    "n": 4,
    "title": "일일보고 — 2026-08-13",
    "at": "2026-08-12T15:16:42Z",
@@ -88,6 +79,16 @@
  ],
  "prs": [],
  "commits": [
+  {
+   "msg": "현황판 갱신 — 08월 13일 14:25",
+   "at": "2026-08-13T05:25:22Z",
+   "url": "https://github.com/jaycestart/sky-arena/commit/3ba5faff28e0f682c1fdc03937ae7a383be61b4f"
+  },
+  {
+   "msg": "개발자 자동 수리 — 이슈 #7",
+   "at": "2026-08-13T05:25:17Z",
+   "url": "https://github.com/jaycestart/sky-arena/commit/c2b21fda8eca30db9b8edb7f03fca66039818ed8"
+  },
   {
    "msg": "현황판 갱신 — 08월 13일 09:49",
    "at": "2026-08-13T00:49:15Z",
@@ -117,16 +118,6 @@
    "msg": "현황판 갱신 — 08월 13일 09:38",
    "at": "2026-08-13T00:38:20Z",
    "url": "https://github.com/jaycestart/sky-arena/commit/8b0f81c9bda05af093d3bfdfb48678ee34fbe71a"
-  },
-  {
-   "msg": "개발자 실전 시험 — 미사일 정보량 줄이기 과제를 맡긴다",
-   "at": "2026-08-13T09:31:51+09:00",
-   "url": "https://github.com/jaycestart/sky-arena/commit/860efdaddfcc761305e67e8624c21f7303056ac0"
-  },
-  {
-   "msg": "현황판 갱신 — 08월 13일 09:28",
-   "at": "2026-08-13T00:28:15Z",
-   "url": "https://github.com/jaycestart/sky-arena/commit/77dba87a55316b32dfaa985fa9f7c9d3a6b16cb2"
   }
  ]
 }
