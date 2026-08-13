@@ -1,25 +1,53 @@
 {
  "staff": [
   {
+   "name": "개발자",
+   "status": "in_progress",
+   "conclusion": "",
+   "at": "2026-08-13T05:23:59Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31670185372"
+  },
+  {
    "name": "정비공",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-13T00:46:30Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655558780"
+   "at": "2026-08-13T05:23:56Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31670181845"
   },
   {
-   "name": "개발자",
+   "name": "버그 사냥꾼",
    "status": "completed",
-   "conclusion": "failure",
-   "at": "2026-08-13T00:46:27Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655555861"
+   "conclusion": "success",
+   "at": "2026-08-13T05:23:38Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31670164880"
   },
   {
    "name": "실력 균형 검사원",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-13T00:46:09Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655539095"
+   "at": "2026-08-13T05:23:38Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31670164790"
+  },
+  {
+   "name": "비서",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-13T05:23:38Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31670164781"
+  },
+  {
+   "name": "측정원",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-13T05:23:38Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31670164769"
+  },
+  {
+   "name": "성능 감시원",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-13T05:23:38Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31670164761"
   },
   {
    "name": "검증",
@@ -27,34 +55,6 @@
    "conclusion": "success",
    "at": "2026-08-13T00:46:09Z",
    "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655539025"
-  },
-  {
-   "name": "버그 사냥꾼",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-13T00:46:09Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655539010"
-  },
-  {
-   "name": "성능 감시원",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-13T00:46:09Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655538976"
-  },
-  {
-   "name": "측정원",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-13T00:46:09Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655538968"
-  },
-  {
-   "name": "비서",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-13T00:42:37Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655337011"
   }
  ],
  "issues": [
@@ -89,6 +89,11 @@
  "prs": [],
  "commits": [
   {
+   "msg": "현황판 갱신 — 08월 13일 09:49",
+   "at": "2026-08-13T00:49:15Z",
+   "url": "https://github.com/jaycestart/sky-arena/commit/b2a3f4371c886b63296caa6c270f9ff0f2ba86ea"
+  },
+  {
    "msg": "현황판 갱신 — 08월 13일 09:47",
    "at": "2026-08-13T00:47:58Z",
    "url": "https://github.com/jaycestart/sky-arena/commit/67beea9fb97b0f45ddb2fe461be32f17cbf12eaa"
@@ -122,11 +127,6 @@
    "msg": "현황판 갱신 — 08월 13일 09:28",
    "at": "2026-08-13T00:28:15Z",
    "url": "https://github.com/jaycestart/sky-arena/commit/77dba87a55316b32dfaa985fa9f7c9d3a6b16cb2"
-  },
-  {
-   "msg": "현황판 커밋 쏟아짐을 제대로 막는다 — 건너뛰지 말고 기다린다",
-   "at": "2026-08-13T09:26:21+09:00",
-   "url": "https://github.com/jaycestart/sky-arena/commit/eebce3f4157f310e8acd705ffd5f18c2471ce47c"
   }
  ]
 }
