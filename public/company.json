@@ -1,39 +1,53 @@
 {
  "staff": [
   {
-   "name": "개발자",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-13T00:42:57Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655357181"
-  },
-  {
    "name": "정비공",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-13T00:42:54Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655354108"
+   "at": "2026-08-13T00:46:30Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655558780"
   },
   {
-   "name": "성능 감시원",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-13T00:42:37Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655337036"
+   "name": "개발자",
+   "status": "in_progress",
+   "conclusion": "",
+   "at": "2026-08-13T00:46:27Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655555861"
   },
   {
-   "name": "측정원",
+   "name": "실력 균형 검사원",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-13T00:42:37Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655337033"
+   "at": "2026-08-13T00:46:09Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655539095"
+  },
+  {
+   "name": "검증",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-13T00:46:09Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655539025"
   },
   {
    "name": "버그 사냥꾼",
    "status": "completed",
    "conclusion": "success",
-   "at": "2026-08-13T00:42:37Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655337017"
+   "at": "2026-08-13T00:46:09Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655539010"
+  },
+  {
+   "name": "성능 감시원",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-13T00:46:09Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655538976"
+  },
+  {
+   "name": "측정원",
+   "status": "completed",
+   "conclusion": "success",
+   "at": "2026-08-13T00:46:09Z",
+   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655538968"
   },
   {
    "name": "비서",
@@ -41,20 +55,6 @@
    "conclusion": "success",
    "at": "2026-08-13T00:42:37Z",
    "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655337011"
-  },
-  {
-   "name": "검증",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-13T00:42:37Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655337010"
-  },
-  {
-   "name": "실력 균형 검사원",
-   "status": "completed",
-   "conclusion": "success",
-   "at": "2026-08-13T00:42:37Z",
-   "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655337007"
   }
  ],
  "issues": [
@@ -89,6 +89,16 @@
  "prs": [],
  "commits": [
   {
+   "msg": "무료 한도에 부딪히면 기다렸다 다시 한다",
+   "at": "2026-08-13T09:45:55+09:00",
+   "url": "https://github.com/jaycestart/sky-arena/commit/e4103e55cdc37639a5002b0452278f033d1651ad"
+  },
+  {
+   "msg": "현황판 갱신 — 08월 13일 09:44",
+   "at": "2026-08-13T00:44:35Z",
+   "url": "https://github.com/jaycestart/sky-arena/commit/4b79b088e3bf654365bc4552b7d4242e9d15fce5"
+  },
+  {
    "msg": "개발자가 파일을 통째로 보내다 한도에 막히던 것 + 보고서를 결과 중심으로",
    "at": "2026-08-13T09:42:22+09:00",
    "url": "https://github.com/jaycestart/sky-arena/commit/e28680d1ba86ef2982a84c530bd27f981790ca96"
@@ -117,16 +127,6 @@
    "msg": "현황판 갱신 — 08월 13일 09:19",
    "at": "2026-08-13T00:19:36Z",
    "url": "https://github.com/jaycestart/sky-arena/commit/fa97f3f7a07fbed2d6e983100daa409909486878"
-  },
-  {
-   "msg": "현황판 갱신 — 08월 13일 09:19",
-   "at": "2026-08-13T00:19:25Z",
-   "url": "https://github.com/jaycestart/sky-arena/commit/4368086c9726616f9d4db1e4118c345daf200b81"
-  },
-  {
-   "msg": "Groq 이 파이썬 기본 신원을 차단하던 문제 — 자기 소개를 하게 했다",
-   "at": "2026-08-13T09:18:20+09:00",
-   "url": "https://github.com/jaycestart/sky-arena/commit/e6180c57f35cb878739052ce87914ec503103252"
   }
  ]
 }
