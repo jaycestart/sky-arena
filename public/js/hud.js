@@ -627,14 +627,21 @@ export class Hud {
    *  끝없이 어긋난다. 숫자를 화면에 박아 두면 한 번에 판별된다. */
   buildBadge(ctx) {
     const W = this.world;
-    const ms = W.scaleOf ? W.scaleOf(W.myId) : 0;
-    if (!ms) return;
     ctx.save();
     ctx.textAlign = 'right';
     ctx.font = '700 11px ui-monospace, monospace';
-    ctx.fillStyle = 'rgba(125,251,166,.55)';
-    ctx.fillText('SCALE x' + ms.toFixed(2) + '  R' + (W.cfg?.planeR ?? '?'),
-                 this.w - 14, this.h - 16);
+    // 빌드 날짜를 **맨 앞에** 박는다. 기체 배율만 찍고 있었더니 "바뀐 게
+    // 맞냐" 를 말로 주고받는 동안 판별이 안 됐다 — 실제로 오늘 하루,
+    // 코드는 서버에 올라갔는데 사용자 화면은 어제 것이었고 그걸 알아채는 데
+    // 오래 걸렸다. 날짜가 화면에 있으면 한 번에 끝난다.
+    ctx.fillStyle = 'rgba(125,251,166,.75)';
+    ctx.fillText('BUILD ' + (W.build || '?'), this.w - 14, this.h - 30);
+    const ms = W.scaleOf ? W.scaleOf(W.myId) : 0;
+    if (ms) {
+      ctx.fillStyle = 'rgba(125,251,166,.5)';
+      ctx.fillText('SCALE x' + ms.toFixed(2) + '  R' + (W.cfg?.planeR ?? '?'),
+                   this.w - 14, this.h - 16);
+    }
     ctx.restore();
   }
 
