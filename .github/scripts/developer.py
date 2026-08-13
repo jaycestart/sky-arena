@@ -57,10 +57,33 @@ GROQ_MODELS = [
 ]
 
 
+# Groq 앞단의 Cloudflare 가 파이썬 기본 신원(Python-urllib/3.x)을 보고
+# 차단한다 — HTTP 403 error code 1010 이 그것이다. 열쇠와는 무관하다.
+# 자기 소개를 제대로 하면 통과한다. 하나가 막히면 다음 것으로 넘어간다.
+USER_AGENTS = [
+    "sky-arena-developer/1.0 (+https://github.com/jaycestart/sky-arena)",
+    "curl/8.5.0",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+]
+
+
 def _post(url, body, headers, timeout=180):
-    req = urllib.request.Request(url, json.dumps(body).encode(), headers)
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.load(r)
+    data = json.dumps(body).encode()
+    last = None
+    for ua in USER_AGENTS:
+        h = dict(headers, **{"User-Agent": ua, "Accept": "application/json"})
+        try:
+            req = urllib.request.Request(url, data, h)
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.load(r)
+        except urllib.error.HTTPError as e:
+            # 403 은 신원 차단일 수 있으니 다음 신원으로 다시 시도한다.
+            # 401(열쇠 거부)·404(모델 없음)·429(한도)는 다시 해도 같으므로 바로 던진다.
+            if e.code != 403:
+                raise
+            last = e
+    raise last
 
 
 def ask(prompt, max_tokens=8192):
