@@ -256,6 +256,7 @@ class Plane:
         self.throttle = 0.75
         self.ab = False
         self.brake = False
+        self.shots = 0          # 발사 횟수. 좌우 파일런을 번갈아 쓰는 데만 쓴다
         self.want_fire = False
         # 마지막으로 입력을 받은 시각(app.py 가 갱신한다). 클라이언트의
         # 전송 루프가 멈추면 마지막 입력이 붙잡혀 계속 발사되므로,
@@ -588,12 +589,17 @@ class World:
             # 무유도 — 락온을 보지 않는다. 겨눈 방향으로 그냥 쏜다.
             p.fire_t = spec["cd"]
             target = 0
-            side = -1.0 if int(p.fire_t * 1000) % 2 else 1.0
+            # 좌우 파일런을 번갈아 쓴다. 예전에는 int(p.fire_t*1000) % 2 였는데
+            # 바로 윗줄에서 fire_t 를 쿨다운(0.42)으로 세팅하므로 int(420)%2 가
+            # 늘 0 이었다 — 미사일이 언제나 같은 쪽에서만 나갔다.
+            side = -1.0 if p.shots % 2 else 1.0
             muzzle = spec["muzzle"]
         else:
             p.ms_cd = spec["cd"]
             target = p.lock_id if p.lock_t >= spec["lockTime"] else 0
-            side = -1.0 if p.missiles % 2 else 1.0
+            # p.missiles 는 어디서도 줄지 않아 99 로 고정이었다. 여기도 늘
+            # 같은 쪽이었다.
+            side = -1.0 if p.shots % 2 else 1.0
             muzzle = 400.0
         # 발사점은 **기체 좌표계** 값이라 메시 배율을 같이 먹여야 한다.
         # 안 그러면 flanker(1.21배)는 미사일이 날개 안쪽에서, falcon(0.824배)은
@@ -607,6 +613,7 @@ class World:
         pos = v_add(v_add(p.pos, v_mul(f, 4.0 * ms)), v_mul(r, 2.74 * ms * side))
         vel = v_add(tuple(p.vel), v_mul(f, muzzle))
         self.missiles.append(Missile(new_id(), pos, vel, p.q, p.id, target, kind))
+        p.shots += 1
         self.events.append({"e": "launch", "id": p.id, "k": kind})
 
     def _drop_flare(self, p):
@@ -1068,8 +1075,14 @@ class World:
         missiles = [[m.id, round(m.pos[0]), round(m.pos[1]), round(m.pos[2]),
                      round(m.vel[0]), round(m.vel[1]), round(m.vel[2]), m.owner]
                     for m in vis]
+        # 속도까지 보낸다. 예전에는 위치와 수명만 보내고 클라이언트가
+        # '수직으로 18m/s 낙하'로 예측했는데, 실제 플레어는 모기 속도를
+        # 물려받아 사출 직후 수평으로 450 m/s 로 난다. 스냅샷 간격 40ms 동안
+        # 서버는 18m 전진, 클라는 0.7m 하강 — 스프라이트가 매 스냅샷마다
+        # 18m 씩 순간이동해 궤적이 계단처럼 튀었다.
         flares = [[round(f.pos[0], 1), round(f.pos[1], 1), round(f.pos[2], 1),
-                   round(f.life, 1)] for f in self.flares if near(f)]
+                   round(f.life, 1), round(f.vel[0]), round(f.vel[1]),
+                   round(f.vel[2])] for f in self.flares if near(f)]
 
         snap = {"t": "s", "k": self.tick, "p": planes, "rd": radar,
                 "m": missiles, "fl": flares}

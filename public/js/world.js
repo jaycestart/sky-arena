@@ -120,7 +120,8 @@ export class World {
     this.missiles = (s.m || []).map(([id, x, y, z, vx, vy, vz, o]) => ({
       id, pos: [x, y, z], vel: [vx, vy, vz], owner: o, q: lookQ(v3.norm([vx, vy, vz])),
     }));
-    this.flares = (s.fl || []).map(([x, y, z, life]) => ({ pos: [x, y, z], life }));
+    this.flares = (s.fl || []).map(([x, y, z, life, vx, vy, vz]) =>
+      ({ pos: [x, y, z], life, vel: [vx || 0, vy || 0, vz || 0] }));
     this.radar = (s.rd || []).map(([id, x, y, z]) => ({ id, pos: [x, y, z] }));
 
     if (s.me) this._applyMe(s.me);
@@ -220,8 +221,15 @@ export class World {
 
     // 발사체는 스냅샷 사이를 로컬에서 이어 굴린다
     for (const m of this.missiles) m.pos = v3.add(m.pos, v3.mul(m.vel, dt));
+    // 서버 _step_flares 와 **같은 공식**이어야 한다. 예전에는 수직 낙하만
+    // 시켰는데 실제로는 모기 속도를 물려받아 수평으로 날아간다.
     for (const f of this.flares) {
-      f.pos = v3.add(f.pos, [0, -18 * dt, 0]);
+      f.vel[1] -= G * dt;
+      const drag = 0.9 * dt;
+      f.vel[0] -= f.vel[0] * drag;
+      f.vel[1] -= f.vel[1] * drag;
+      f.vel[2] -= f.vel[2] * drag;
+      f.pos = v3.add(f.pos, v3.mul(f.vel, dt));
       f.life -= dt;
     }
 

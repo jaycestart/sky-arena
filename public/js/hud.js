@@ -219,7 +219,11 @@ export class Hud {
   /** 지금 쏘면 탄이 어디로 가는지(피퍼) + 맞히려면 어디를 겨눠야 하는지(리드 마커) */
   gunsight(ctx, cx, cy) {
     const W = this.world, s = W.srv;
-    if (s.w !== 0) return;
+    // 예전에는 s.w !== 0 이면 여기서 나가버렸다. 그런데 서버의 _launch 는
+    // 무기 선택값을 아예 보지 않는다 — 좌클릭은 언제나 로켓, 우클릭은
+    // 언제나 유도탄이다. 그래서 2 번 키를 누르면 조준경만 사라지고 발사는
+    // 그대로 되는, 규칙과 화면이 어긋난 상태가 됐다. 선택은 표시일 뿐이니
+    // 조준경은 항상 그린다.
     const me = W.me.pos;
     const myVel = [s.vx, s.vy, s.vz];
     const muzzle = this.world.weapons?.[0]?.muzzle ?? 1030;
