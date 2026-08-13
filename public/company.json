@@ -9,8 +9,8 @@
   },
   {
    "name": "개발자",
-   "status": "in_progress",
-   "conclusion": "",
+   "status": "completed",
+   "conclusion": "failure",
    "at": "2026-08-13T00:46:27Z",
    "url": "https://github.com/jaycestart/sky-arena/actions/runs/31655555861"
   },
@@ -89,6 +89,11 @@
  "prs": [],
  "commits": [
   {
+   "msg": "현황판 갱신 — 08월 13일 09:47",
+   "at": "2026-08-13T00:47:58Z",
+   "url": "https://github.com/jaycestart/sky-arena/commit/67beea9fb97b0f45ddb2fe461be32f17cbf12eaa"
+  },
+  {
    "msg": "무료 한도에 부딪히면 기다렸다 다시 한다",
    "at": "2026-08-13T09:45:55+09:00",
    "url": "https://github.com/jaycestart/sky-arena/commit/e4103e55cdc37639a5002b0452278f033d1651ad"
@@ -122,11 +127,6 @@
    "msg": "현황판 커밋 쏟아짐을 제대로 막는다 — 건너뛰지 말고 기다린다",
    "at": "2026-08-13T09:26:21+09:00",
    "url": "https://github.com/jaycestart/sky-arena/commit/eebce3f4157f310e8acd705ffd5f18c2471ce47c"
-  },
-  {
-   "msg": "현황판 갱신 — 08월 13일 09:19",
-   "at": "2026-08-13T00:19:36Z",
-   "url": "https://github.com/jaycestart/sky-arena/commit/fa97f3f7a07fbed2d6e983100daa409909486878"
   }
  ]
 }
