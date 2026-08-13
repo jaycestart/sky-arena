@@ -16,3 +16,6 @@ desktop.ini
 # 임시 산출물
 *.tmp
 eqv-tmp.json
+
+# 작업 중 만들어지는 임시 파일. 실수로 커밋되면 배포에 섞인다.
+public/js/gfx/__*

@@ -49,44 +49,6 @@ const ID_CAP_M = JET_SPAN_REF * 3;     // 36.3m — 오늘의 상한 3배 그대
 const MSL_FLOOR_PX = 2.0;                    // 안티에일리어싱이 지우지 않는 최소 굵기
 const MSL_K_MAX = (MSL_LEN / 4) / MSL_DIA;   // 5.98 — 4:1 보다 뚱뚱하면 미사일이 아니다
 
-// ── 저공 속도감 ────────────────────────────────────────────────────
-// 시속 3000km 로 날아도 빠르게 느껴지지 않던 근본 원인은 파티클 수가 아니라
-// **지형에 스쳐 지나갈 것이 없다**는 것이다. terrainH 의 최고 주파수 파장이
-// 885m 라 이 세계에는 885m 보다 작은 지오메트리가 원리적으로 없고(m3d.js
-// 주석), 순항 고도 3000m 에서는 그 885m 짜리 언덕조차 화면에서 거의 안
-// 움직인다. 속도감(= 시선 각속도)은 **가까운 작은 것**에서만 나온다.
-//
-// 그래서 세 가지를 전부 '지면 근처' 로 묶는다. 고도가 높으면 효과가 사라지는
-// 게 타협이 아니라 물리적으로 맞는 그림이고, 동시에 **비용도 0** 이 된다.
-const DUST_AGL = 260;      // 흙먼지가 이는 최대 고도(m)
-const SHADOW_AGL = 800;    // 접지 그림자 한계(이 위로는 안 그린다)
-const SCAT_AGL = 600;      // 지상 스캐터 한계
-const SCAT_CELL = 56;      // 스캐터 격자 셀(m) — 셀 하나에 지물 하나
-// 셀 개수는 q.detail 에 묶는다. adapt() 가 이미 그 손잡이를 돌리고 있으므로
-// 느린 기기에서는 별도 코드 없이 자동으로 성겨진다(DEGRADE 표 참조).
-// detail 0(강등 7단계 이하)에서는 통째로 끈다.
-const SCAT_N = [0, 7, 11, 13];
-
-// 속도 → 화각 부스트(도). 예전 식은 `min(26, (spd-180)/9)` 였는데 414 m/s
-// 에서 이미 상한이라 **순항(830)도 AB(1450)도 똑같이 +26도**였다. 속도 블러가
-// 항상 최대치라 '상시 흐림' 이 됐던 것과 완전히 같은 종류의 버그다
-// (postParams 주석). 화각이 변하지 않으면 그건 속도 단서가 아니라 그냥 넓은
-// 렌즈다 — 가속·감속의 순간에 화각이 '움직여야' 속도로 읽힌다.
-//
-// 순항 앵커를 오늘 값(830 → +26.0)에 못 박았으므로 **평소 화면 구도는 한
-// 도도 안 바뀐다.** 움직이는 건 양 끝뿐이다: 스로틀을 놓으면 좁아지고
-// AB 를 켜면 더 열린다. 표로 두는 이유는 멀미 조정이 결국 눈으로 보고 값을
-// 만지는 작업이라, 수식 계수보다 '이 속도에서 몇 도' 가 사람이 고칠 수 있는
-// 형태이기 때문이다. [속도 m/s, 부스트 도]
-const FOV_BOOST = [[0, 0], [300, 12], [830, 26], [1450, 33]];
-function fovBoost(spd) {
-  for (let i = 1; i < FOV_BOOST.length; i++) {
-    const a = FOV_BOOST[i - 1], b = FOV_BOOST[i];
-    if (spd <= b[0]) return a[1] + (b[1] - a[1]) * clamp((spd - a[0]) / (b[0] - a[0]), 0, 1);
-  }
-  return FOV_BOOST[FOV_BOOST.length - 1][1];
-}
-
 // ── 기종별 도장 (선형 albedo) ──────────────────────────────────────
 // 기종별 메시 3벌을 기각한 대신 **같은 메시를 색으로 가른다.** 실루엣이 같아도
 // 색이 다르면 사람은 다른 기체로 인식한다. 배율 차이(0.824 vs 1.210)와 겹치면
@@ -913,7 +875,7 @@ export class Scene {
     this.camPos3[0] = cam.eye[0]; this.camPos3[1] = cam.eye[1]; this.camPos3[2] = cam.eye[2];
 
     const spd = W.srv ? W.srv.sp : 0;
-    const boost = fovBoost(spd);
+    const boost = Math.min(26, Math.max(0, (spd - 180) / 9));
     this.fov = (this.fov || 75) + (((this.set?.fov ?? 75) + boost) - (this.fov || 75))
              * Math.min(1, dt * 3);
     const proj = m4.perspective(this.fov * Math.PI / 180, this.w / this.h, this.near, this.far);
@@ -1489,41 +1451,13 @@ export class Scene {
       if (!pl.alive) continue;
       const gh = terrainH(pl.pos[0], pl.pos[2]);
       const agl = pl.pos[1] - Math.max(gh, 0);
-      if (agl > SHADOW_AGL || agl < -20) continue;
+      if (agl > 800 || agl < -20) continue;
       // 고도에 따라 반경을 키우고 농도를 낮춰 페널럼브라를 흉내낸다.
       // 본영 반경 9m 는 기체 크기라 배율을 먹인다(반그림자 항은 고도의
       // 함수라 그대로 둔다 — 기체 크기와 무관한 태양 각반경 효과다).
-      const t = clamp(agl / SHADOW_AGL, 0, 1);
-      const r = 9 * W.scaleOf(pl.id) + agl * 0.06;
-      // ── 태양 쪽으로 민다 ────────────────────────────────────────
-      // 예전에는 기체 **바로 밑**에 붙어 있었다. 그러면 그림자가 기체와 함께
-      // 움직일 뿐이라 '지면 위를 달리는' 것으로 안 읽힌다. 태양 방향으로
-      // 밀어 두면 뱅크·상승에서 그림자만 따로 지면을 훑고, 그 상대운동이
-      // 곧 속도 단서다.
-      //
-      // 다만 물리적으로 정확한 오프셋(agl/tan(고도각))은 아침·저녁에 수 km 가
-      // 되어 화면에서 사라진다 — 태양 고도는 최소 0.075rad 까지 내려간다
-      // (sunDirFromTod). agl 의 0.8배로 잘라 항상 화면 안에 붙들어 둔다.
-      const sy = Math.max(this.sun3[1], 1e-3);
-      let ox = -this.sun3[0] / sy * agl, oz = -this.sun3[2] / sy * agl;
-      const ol = Math.hypot(ox, oz), omax = agl * 0.8;
-      if (ol > omax) { ox *= omax / ol; oz *= omax / ol; }
-      const px = pl.pos[0] + ox, pz = pl.pos[2] + oz;
-      // ── 경사면에 파묻히는 문제 ──────────────────────────────────
-      // 데칼은 **한 높이의 평평한 사각형**이다(shaders.js VS_DECAL). 지형
-      // 경사가 최대 0.75 라 반경 20m 짜리 그림자는 오르막 쪽 15m 가 지면
-      // 아래로 들어가 깊이 판정에 통째로 잘린다 — 산비탈을 스칠 때 그림자가
-      // 깜빡이며 사라지던 원인이다. 국소 경사만큼 미리 띄운다.
-      // 계수 0.75 는 타협이다: 1.0 이면 절대 안 잘리지만 평지에서 그림자가
-      // 떠 보이고(시차), 0 이면 오늘처럼 잘린다.
-      const e = r * 0.7;
-      const sx = (terrainH(px + e, pz) - terrainH(px - e, pz)) / (2 * e);
-      const sz = (terrainH(px, pz + e) - terrainH(px, pz - e)) / (2 * e);
-      const gy = terrainH(px, pz);
-      jobs.push({ y: Math.max(gy, 0) + 0.7 + Math.hypot(sx, sz) * r * 0.75, x: px, z: pz,
-                  // 농도 곡선을 (1-t)^1.4 로 세운다. 선형이면 저공 200m 에서도
-                  // 이미 4분의 1이 날아가 있어서 가장 필요한 구간이 가장 옅었다.
-                  r, d: Math.pow(1 - t, 1.4) * 0.62 });
+      const t = clamp(agl / 800, 0, 1);
+      jobs.push({ y: Math.max(gh, 0) + 0.7, x: pl.pos[0], z: pl.pos[2],
+                  r: 9 * W.scaleOf(pl.id) + agl * 0.06, d: (1 - t) * 0.55 });
     }
     if (!jobs.length) return;
     this.useProg(pr);
@@ -1652,13 +1586,10 @@ export class Scene {
 
     for (const f of W.flares) fx.flare(f.pos[0], f.pos[1], f.pos[2], dt);
 
-    // 손상 연기 · 콘트레일 · 익단 와류 · 저공 흙먼지
+    // 손상 연기 · 콘트레일 · 익단 와류
     for (const pl of W.view()) {
       if (!pl.alive) continue;
-      // **내 기체는 view() 가 vel 을 싣지 않는다**(world.js view() 의 me 분기).
-      // 그래서 지금까지 내 손상 연기만 제자리에서 피어올랐다. 예측 상태의
-      // 속도가 그 자리를 메운다 — 아래 흙먼지·와류도 이 값 하나에 매달린다.
-      const vel = (pl.me ? W.me?.vel : pl.vel) || [0, 0, 0];
+      const vel = pl.vel || [0, 0, 0];
       // 익단 오프셋 6.0 / 5.6 은 기체 좌표계 값이라 기종 배율을 먹인다 —
       // 안 먹이면 flanker 는 콘트레일이 날개 안쪽에서, falcon 은 날개 바깥
       // 허공에서 난다.
@@ -1675,54 +1606,18 @@ export class Scene {
           });
         }
       }
-      const sp = Math.hypot(vel[0], vel[1], vel[2]);
-      // ── 익단 베이퍼 와류 ──────────────────────────────────────────
-      // 예전 조건은 `pl.me && srv.g > 6` 이라 **내 기체에서만** 났다. 남·봇은
-      // 실속 플래그가 뜨는 순간에만 겨우 보였는데, 아케이드 모델의 g 는
-      // 서버에서 `1 + |c_pitch|·pitchRate·4` 즉 '얼마나 당겼나' 하나다.
-      // 그 값은 rate[1] 로 사람·봇·나에게 **같은 경로**로 이미 와 있다
-      // (world.js bodyRate 주석: 봇 플래그가 아니라 자세 차분에서 뽑는다).
-      // 봇 분기로 갈라져 있던 연출을 데이터 경로로 되돌린다.
-      const pull = Math.abs(pl.rate?.[1] || 0);
-      // 리본을 쓰면서 발생률을 30 → 18 로 낮췄다. 점 하나가 리본 하나이므로
-      // 같은 밀도를 3분의 2 개수로 얻는다.
-      if ((pl.stalling || pull > 0.45) && Math.random() < dt * 18) {
+      // 실속·고G 에서 익단 베이퍼 와류
+      const hiG = (pl.me && this.world.srv) ? Math.abs(this.world.srv.g) > 6 : false;
+      if ((pl.stalling || hiG) && Math.random() < dt * 30) {
         const f = quat.fwd(pl.q), r = quat.right(pl.q), u = quat.up(pl.q);
-        const kv = pl.stalling ? 1 : clamp((pull - 0.45) / 0.4, 0.3, 1);
-        // 리본 길이는 한 프레임에 기체가 지나는 거리 정도로 둔다 —
-        // 그보다 길면 날개 끝이 아니라 기체 몸통에서 나는 것처럼 보인다.
-        const rib = 5 + sp * 0.022;
         for (const s of [-1, 1]) {
           const p = v3.add(pl.pos, v3.add(v3.add(v3.mul(r, 5.6 * ms * s), v3.mul(f, -1.0 * ms)),
                                           v3.mul(u, 0.3 * ms)));
-          fx.vortex(p[0], p[1], p[2], -f[0] * rib, -f[1] * rib, -f[2] * rib, kv);
+          fx._p('alpha', p[0], p[1], p[2], 0, 0, 0, {
+            life: 0.55, s0: 1.0, s1: 6.5, c0: [0.95, 0.97, 1.0], tile: T_SMOKE,
+            a0: 0.42, rot: Math.random() * 6.283,
+          });
         }
-      }
-      // ── 저공 흙먼지 ──────────────────────────────────────────────
-      // 4km 밖 기체의 먼지는 화면에서 한 점도 안 되므로 아예 만들지 않는다.
-      // 이 게이트가 없으면 30km 떨어진 봇 열두 대가 알파 풀을 갉아먹는다.
-      const ex = pl.pos[0] - this.camEye[0], ez = pl.pos[2] - this.camEye[2];
-      if (sp < 150 || ex * ex + ez * ez > 16e6) continue;
-      // AGL: 내 기체는 서버가 권위값(srv.agl)을 내려준다. 남·봇만 클라에서
-      // 지형을 조회한다 — **봇 분기가 아니라 데이터 유무의 차이**다.
-      const agl = (pl.me && W.srv) ? W.srv.agl
-                                   : pl.pos[1] - Math.max(terrainH(pl.pos[0], pl.pos[2]), 0);
-      if (!(agl < DUST_AGL) || agl < -5) continue;
-      const k = clamp(1 - agl / DUST_AGL, 0, 1);
-      // **거리 기준** 발생률이다(45m 항적마다 하나). 시간 기준으로 두면
-      // 느리게 날 때 먼지가 더 짙어지는 거꾸로 된 그림이 되고, 프레임레이트가
-      // 흔들릴 때 먼지 띠에 구멍이 난다. 미사일 궤적이 같은 이유로 거리
-      // 기준이다(fx.js missile 주석).
-      if (Math.random() < dt * sp / 45 * k) {
-        const hl = Math.hypot(vel[0], vel[2]) || 1;
-        const dx = vel[0] / hl, dz = vel[2] / hl;
-        const lead = 60 + Math.random() * 240;
-        const side = (Math.random() - 0.5) * 46;
-        const px = pl.pos[0] + dx * lead - dz * side;
-        const pz = pl.pos[2] + dz * lead + dx * side;
-        const gy = terrainH(px, pz);
-        // 바다에는 모래가 일지 않는다. 물기둥은 다른 이펙트(impact)의 몫이다.
-        if (gy > 6) fx.groundDust(px, gy, pz, dx, dz, sp, k);
       }
     }
 
@@ -1759,101 +1654,6 @@ export class Scene {
       if (e.ground) this.fx.impact(e.x, e.y, e.z, !!e.water);
       // 짧은 전역 섬광 — 거의 공짜인데 설득력이 크다
       this.flash = Math.max(this.flash, clamp(1 - d / 2200, 0, 1) * 0.8);
-    }
-
-    // 지상 스캐터는 맨 마지막이다 — transient 는 이번 프레임만 살고
-    // fx.update(dt) 가 카운터를 0 으로 되돌린 뒤에 쌓여야 한다.
-    this.groundScatter(lit);
-  }
-
-  /**
-   * 저공 지상 스캐터 — 지면에 붙은 작은 지물(덤불·바위)이 스쳐 지나가게 한다.
-   *
-   * 왜 필요한가: 화면에서 느끼는 속도는 시선 각속도이고, 각속도는 **가깝고
-   * 작은 것**에서만 나온다. 이 세계에는 885m 보다 작은 지오메트리가 원리적으로
-   * 없어서(m3d.js TERRAIN_OCT) 스쳐 갈 대상 자체가 없었다. 나무를 '심는' 것도
-   * 3000m 상공에서는 1픽셀이 안 되므로 의미가 없다 — 그래서 **저공에서만**
-   * 존재하게 만든다. 높이 날면 속도감이 없는 것이 물리적으로 맞고, 동시에
-   * 첫 세 줄에서 되돌아가므로 순항 중 비용이 정확히 0 이다.
-   *
-   * 스폰이 아니라 **월드 좌표 해시**다. 셀 정수 좌표에서 위치·크기·색을
-   * 결정론적으로 뽑으므로
-   *   (1) 지물이 월드에 못 박혀 카메라를 따라 헤엄치지 않고
-   *   (2) 수명·풀 관리가 없고(transient 는 이번 프레임만 산다)
-   *   (3) 프레임당 개수가 격자 크기로 **상수 고정**된다.
-   * 시간 기반 스폰이면 프레임레이트에 따라 밀도가 달라지고, 미사일 궤적이
-   * 쓰는 알파 풀을 잠식한다(fx.js setCap 주석의 그 사고).
-   *
-   * 지물은 **세로로 늘린 빌보드**다. 눕힌 판이 아니라 세로여야 하는 이유는
-   * 소프트 파티클 때문이다 — 지면에 딱 붙은 스프라이트는 깊이 차가 0 이라
-   * FS_FX 의 `(sz-fz)/uSoft` 가 알파를 0 으로 만들어 아무것도 안 보인다.
-   * 세로 리본은 밑동만 부드럽게 지면에 묻혀 접지가 오히려 자연스럽다.
-   */
-  groundScatter(lit) {
-    const fx = this.fx;
-    const N = SCAT_N[clamp(this.q.detail | 0, 0, 3)];
-    if (!fx || !N) return;
-    const eye = this.camEye;
-    const agl = eye[1] - Math.max(terrainH(eye[0], eye[2]), 0);
-    if (!(agl < SCAT_AGL) || agl < 0) return;
-    // 고도 페이드. 임계에서 뚝 끊으면 상승할 때 지면이 한 번에 벌거벗는다.
-    const hi = clamp((SCAT_AGL - agl) / (SCAT_AGL * 0.45), 0, 1);
-    // 격자를 시선 앞쪽으로 민다 — 뒤쪽 지물은 그려도 화면에 없다. 같은
-    // 개수로 앞쪽 밀도를 두 배로 쓰는 방법이다.
-    const f = quat.rot(this.camQ, [0, 0, 1]);
-    const fl = Math.hypot(f[0], f[2]);
-    const hx = fl > 1e-3 ? f[0] / fl : 0, hz = fl > 1e-3 ? f[2] / fl : 1;
-    const half = N >> 1, R = half * SCAT_CELL;
-    // **셀 격자에 스냅한다.** 스냅하지 않으면 창이 움직일 때마다 셀 경계가
-    // 밀려 지물 집합이 통째로 바뀌고 지면이 지글거린다 — 클립맵이 같은
-    // 이유로 2×cell 스냅을 한다(terrain.js patches 주석).
-    const cx = Math.round((eye[0] + hx * R * 0.6) / SCAT_CELL);
-    const cz = Math.round((eye[2] + hz * R * 0.6) / SCAT_CELL);
-    const bush = [0.075 * lit, 0.095 * lit, 0.055 * lit];
-    const rock = [0.21 * lit, 0.20 * lit, 0.18 * lit];
-    // 근접 페이드는 **3차원 거리**로 잰다. 수평 거리로 재면 고도 500m 에서
-    // 기체 바로 밑이 통째로 벌거벗는다(수평으로는 0m 니까). 카메라 AGL 을
-    // 높이 성분으로 쓰면 지형별 조회 없이 근사가 맞는다.
-    const a2 = agl * agl;
-    for (let j = -half; j <= half; j++) {
-      for (let i = -half; i <= half; i++) {
-        // 창 가장자리 페이드. 셀 인덱스로 재면 정수 비교 두 번이면 되고,
-        // 창이 한 칸 밀릴 때 지물이 팝하지 않고 2.5칸에 걸쳐 흐려진다.
-        const m = Math.abs(i) > Math.abs(j) ? Math.abs(i) : Math.abs(j);
-        const edge = 1 - clamp((m - (half - 2.5)) / 2.5, 0, 1);
-        if (edge <= 0) continue;
-        const gx = cx + i, gz = cz + j;
-        // 정수 두 개 → 32비트 해시. 6비트씩 다섯 칸으로 잘라 쓴다(64단계면
-        // 지터·크기에 충분하다). 필드를 겹쳐 쓰면 '큰 것만 사라지는' 식으로
-        // 상관이 눈에 보인다.
-        let h = Math.imul(gx, 374761393) ^ Math.imul(gz, 668265263);
-        h = Math.imul(h ^ (h >>> 15), 2246822519);
-        h = Math.imul(h ^ (h >>> 13), 3266489917);
-        h ^= h >>> 16;
-        const q3 = ((h >>> 18) & 63) / 64;
-        if (q3 < 0.42) continue;            // 셀의 42% 는 비운다 — 격자가 보이면 지물이 아니라 무늬다
-        const q0 = (h & 63) / 64, q1 = ((h >>> 6) & 63) / 64, q2 = ((h >>> 12) & 63) / 64;
-        const px = gx * SCAT_CELL + (q0 - 0.5) * SCAT_CELL * 0.92;
-        const pz = gz * SCAT_CELL + (q1 - 0.5) * SCAT_CELL * 0.92;
-        const dx = px - eye[0], dz = pz - eye[2];
-        const d2 = dx * dx + dz * dz + a2;
-        // 코앞 30m 안쪽은 그리지 않는다. 지물 하나가 화면을 덮으면 그건
-        // 속도감이 아니라 얼룩이다. 30→90m 구간에서 떠오른다.
-        if (d2 < 900) continue;
-        const near = clamp((d2 - 900) / 7200, 0, 1);
-        const gy = terrainH(px, pz);
-        if (gy < 12) continue;              // 바다·해안에는 안 심는다(해수면이 0 이다)
-        const q4 = ((h >>> 24) & 63) / 64;
-        const tall = q4 > 0.42;
-        const ht = tall ? 6 + q2 * 9 : 2.5 + q2 * 3.5;
-        const wd = tall ? 3.0 + q2 * 3.0 : 4.5 + q2 * 5.0;
-        // 알파 풀의 transient 는 정렬 뒤에 붙으므로 연기보다 나중에 그려진다.
-        // 지물은 지면에 붙은 작은 물체라 겹침 오차가 화면에 안 잡힌다 —
-        // 이걸 정렬에 넣으려면 살아 있는 파티클로 만들어야 하고, 그러면
-        // 위에 적은 (1)(2)(3) 이 전부 무너진다.
-        fx.transient('alpha', px, gy + ht * 0.5 - 1.0, pz, wd, T_SMOKE,
-                     tall ? bush : rock, hi * edge * near * 0.85, 0, ht, 0);
-      }
     }
   }
 
