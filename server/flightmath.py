@@ -74,7 +74,12 @@ def q_axis_angle(axis, ang):
 
 
 def q_integrate(q, omega_body, dt):
-    """기체 각속도(국소축)로 자세를 적분한다."""
+    """기체 각속도(국소축)로 자세를 적분한다.
+
+    살아 있는 호출부는 game.py 의 **잔해 회전** 하나뿐이다. 조종 중인 기체는
+    자세를 적분하지 않는다 — hdg/pit/bnk 세 값에서 매 틱 q_hpb 로 새로
+    만든다(아래 q_hpb 주석). 여기에 기체를 물리면 RESUME 의 막다른 길 1·2
+    (피치·요를 섞으면 롤이 딸려 붙는다)로 그대로 돌아간다."""
     wx, wy, wz = omega_body
     dq = q_mul(q, (0.0, wx * dt * 0.5, wy * dt * 0.5, wz * dt * 0.5))
     return q_norm((q[0] + dq[0], q[1] + dq[1], q[2] + dq[2], q[3] + dq[3]))

@@ -13,8 +13,18 @@
 
 옛 항공역학 분기(받음각 양력계수 · 유도항력 · 천음속 항력 · 실속 · 구조 G
 한계)는 2026-08-14 에 지웠다. 이 문서주석에 그 설명이 그대로 남아 있어
-2026-08-14 에 실제 코드에 맞춰 다시 썼다. AIRCRAFT 표의 cl_a · cd0 · k ·
-wing · stall 다섯 칸은 그때 살아남은 데이터 잔재이고 아무도 안 읽는다.
+2026-08-14 에 실제 코드에 맞춰 다시 썼다.
+
+Plane.step 이 AIRCRAFT 표에서 실제로 읽는 칸은 pitchRate · rollRate ·
+yawRate 셋뿐이다. cl_a · cd0 · k · wing · stall · mass · thrust ·
+abThrust · gLimit 아홉 칸은 아케이드화에서 살아남은 데이터 잔재다.
+(span · length · mscale 은 잔재가 아니라 렌더링 전용이다 — AIRCRAFT 표
+위의 주석을 볼 것.)
+
+여기 '다섯 칸이고 아무도 안 읽는다'고 적혀 있던 것은 두 군데가 틀렸다.
+칸은 아홉이고, 홈 화면 기체 선택 카드(main.js)가 mass · abThrust ·
+rollRate · gLimit 네 칸을 그대로 찍는다. 특히 gLimit 은 아무 데서도
+강제되지 않는 30G 를 사양처럼 보여 준다(BACKLOG 참조).
 """
 
 import math
@@ -22,7 +32,8 @@ import random
 
 # q_mul / q_rot 는 flightmath 안에서만 쓰인다(q_hpb 등이 부른다) — 여기서
 # 직접 부를 일은 옛 항공역학 분기와 함께 사라졌다. sound_speed 는 그때
-# 마지막 호출부가 없어졌고 2026-08-14 에 정의까지 지웠다.
+# 마지막 호출부가 없어졌고 2026-08-14 에 정의까지 지웠다 — 그 자리는
+# Plane.step 의 상수 340 이 대신한다(계기판 전용, 고도를 안 본다).
 from flightmath import (G, TERRAIN_MAX, air_density, fwd, ground_h, q_axis_angle,
                         q_from_heading, q_hpb, hpb_from_q, wrap_pi,
                         q_integrate, q_norm, right,
@@ -378,6 +389,19 @@ class Plane:
         self.pos[1] += self.vel[1] * dt
         self.pos[2] += self.vel[2] * dt
 
+        # 아래 세 값은 **계기판 전용**이다. 비행 물리는 하나도 읽지 않는다.
+        #  · mach — 음속을 해면 340 m/s 로 고정한다. 고도별 음속을 주던
+        #    flightmath.sound_speed 는 항공역학 분기와 함께 지웠는데, HUD
+        #    속도 테이프(hud.js)는 여전히 이 값을 'M x.xx' 로 찍는다. 그래서
+        #    높이 올라갈수록 실제보다 높게 나온다 — 출격 고도 3200m 에서
+        #    +3.7%, 상승한계 17000m 에서 +15.2%.
+        #  · gload — 피치 명령에 비례하는 표시용 수치다. G 한계는 없다
+        #    (AIRCRAFT 의 gLimit 은 아무 데서도 강제되지 않는다). 이 식의
+        #    최대값은 flanker 20.2 · falcon 18.2 · eagle 15.2 인데 HUD 는
+        #    7 을 넘으면 호박색, 8.5 를 넘으면 'OVER G' 를 띄운다 —
+        #    조종간을 44% 만 당겨도 뜨고 아무 결과도 없는 경고다(BACKLOG).
+        #  · stalling — 실속 자체가 없어 **항상 False** 다. 스냅샷의 'st' 는
+        #    scene.js 가 아직 읽고 있어서 남겨 뒀다(_snapshot 주석 참조).
         self.mach = spd / 340.0
         self.gload = 1.0 + abs(pr) * 4.0
         self.stalling = False
