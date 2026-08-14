@@ -131,30 +131,6 @@ def air_density(alt):
     return RHO0 * math.exp(-max(0.0, alt) / SCALE_H)
 
 
-def sound_speed(alt):
-    """고도에 따른 음속(대류권 근사)."""
-    t = 288.15 - 0.0065 * min(alt, 11000.0)
-    return math.sqrt(1.4 * 287.05 * max(t, 216.65))
-
-
-def q_from_basis(r, u, f):
-    """직교 기저(right, up, forward) → 쿼터니언."""
-    tr = r[0] + u[1] + f[2]
-    if tr > 0:
-        s = math.sqrt(tr + 1.0) * 2
-        q = (0.25 * s, (u[2] - f[1]) / s, (f[0] - r[2]) / s, (r[1] - u[0]) / s)
-    elif r[0] > u[1] and r[0] > f[2]:
-        s = math.sqrt(1.0 + r[0] - u[1] - f[2]) * 2
-        q = ((u[2] - f[1]) / s, 0.25 * s, (u[0] + r[1]) / s, (f[0] + r[2]) / s)
-    elif u[1] > f[2]:
-        s = math.sqrt(1.0 + u[1] - r[0] - f[2]) * 2
-        q = ((f[0] - r[2]) / s, (u[0] + r[1]) / s, 0.25 * s, (f[1] + u[2]) / s)
-    else:
-        s = math.sqrt(1.0 + f[2] - r[0] - u[1]) * 2
-        q = ((r[1] - u[0]) / s, (f[0] + r[2]) / s, (f[1] + u[2]) / s, 0.25 * s)
-    return q_norm(q)
-
-
 def wrap_pi(a):
     """각도를 (-π, π] 로 되돌린다."""
     a = math.fmod(a + math.pi, math.tau)

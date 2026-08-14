@@ -3,7 +3,8 @@
 //  · 다른 기체 = 스냅샷 버퍼 보간(위치 lerp, 자세 slerp)
 // 옛 항공역학 분기(양력·항력·실속)는 지웠다 — 아케이드 분기의 return 뒤라
 // 절대 실행되지 않는 코드였다. 서버 game.py Plane.step 의 짝도 같은 커밋에서
-// 함께 지웠다. 그래서 airDensity/soundSpeed/terrainH 는 더 이상 쓰지 않는다.
+// 함께 지웠다. 그때 쓰임을 잃은 m3d 의 airDensity/soundSpeed/groundH 는
+// 2026-08-14 에 정의까지 지웠다 — 여기서 m3d 에 남겨 둘 것은 G 뿐이다.
 import { quat, v3, clamp, G } from './m3d.js';
 
 /** 각도를 (-π, π] 로 (서버 flightmath.wrap_pi 와 동일) */

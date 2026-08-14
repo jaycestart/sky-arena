@@ -37,10 +37,6 @@ export const quat = {
     const h = ang / 2, s = Math.sin(h), a = v3.norm(ax);
     return [Math.cos(h), a[0] * s, a[1] * s, a[2] * s];
   },
-  integrate: (q, w, dt) => {
-    const d = quat.mul(q, [0, w[0] * dt / 2, w[1] * dt / 2, w[2] * dt / 2]);
-    return quat.norm([q[0] + d[0], q[1] + d[1], q[2] + d[2], q[3] + d[3]]);
-  },
   slerp: (a, b, t) => {
     let d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
     let bb = b;
@@ -53,25 +49,6 @@ export const quat = {
     const w1 = Math.sin((1 - t) * th) / s, w2 = Math.sin(t * th) / s;
     return [a[0] * w1 + bb[0] * w2, a[1] * w1 + bb[1] * w2,
             a[2] * w1 + bb[2] * w2, a[3] * w1 + bb[3] * w2];
-  },
-  /** 직교 기저(right, up, forward) → 쿼터니언 */
-  fromBasis: (x, y, z) => {
-    const t = x[0] + y[1] + z[2];
-    let q;
-    if (t > 0) {
-      const s = Math.sqrt(t + 1) * 2;
-      q = [0.25 * s, (y[2] - z[1]) / s, (z[0] - x[2]) / s, (x[1] - y[0]) / s];
-    } else if (x[0] > y[1] && x[0] > z[2]) {
-      const s = Math.sqrt(1 + x[0] - y[1] - z[2]) * 2;
-      q = [(y[2] - z[1]) / s, 0.25 * s, (y[0] + x[1]) / s, (z[0] + x[2]) / s];
-    } else if (y[1] > z[2]) {
-      const s = Math.sqrt(1 + y[1] - x[0] - z[2]) * 2;
-      q = [(z[0] - x[2]) / s, (y[0] + x[1]) / s, 0.25 * s, (z[1] + y[2]) / s];
-    } else {
-      const s = Math.sqrt(1 + z[2] - x[0] - y[1]) * 2;
-      q = [(x[1] - y[0]) / s, (z[0] + x[2]) / s, (z[1] + y[2]) / s, 0.25 * s];
-    }
-    return quat.norm(q);
   },
   /** from → to 로 기수를 옮기는 최단호 회전. 기수축 둘레 비틀림이 0 이다.
    *  카메라 자세를 이걸로 만들면 마우스가 아무리 움직여도 화면이 기울 수 없다 —
@@ -199,15 +176,8 @@ export function terrainH(x, z) {
 /** 30km 메시 실측 최대 637.7m / 최소 -636.9m. 여유를 둔 값. */
 export const TERRAIN_MAX = 700;
 
-/** 바다에서는 해수면이 바닥이다 — 서버 flightmath.ground_h 와 같은 식.
- *  지금 클라 예측은 지면 판정을 하지 않지만, 나중에 누군가 넣을 때
- *  서버와 다른 함수를 쓰는 사고를 막으려고 대칭으로 둔다. */
-export const groundH = (x, z) => Math.max(terrainH(x, z), 0);
+// 지면 판정은 서버 flightmath.ground_h 하나가 권위다. 클라 예측은 지면을
+// 보지 않으므로 여기에 짝을 두지 않는다 — 두면 언젠가 갈라진다.
 
-export const RHO0 = 1.225, SCALE_H = 8500, G = 9.80665;
-export const airDensity = (alt) => RHO0 * Math.exp(-Math.max(0, alt) / SCALE_H);
-export const soundSpeed = (alt) => {
-  const t = 288.15 - 0.0065 * Math.min(alt, 11000);
-  return Math.sqrt(1.4 * 287.05 * Math.max(t, 216.65));
-};
+export const G = 9.80665;
 export const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);

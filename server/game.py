@@ -13,7 +13,9 @@
 import math
 import random
 
-# sound_speed / q_mul / q_rot 는 옛 항공역학 분기와 함께 사라졌다.
+# q_mul / q_rot 는 flightmath 안에서만 쓰인다(q_hpb 등이 부른다) — 여기서
+# 직접 부를 일은 옛 항공역학 분기와 함께 사라졌다. sound_speed 는 그때
+# 마지막 호출부가 없어졌고 2026-08-14 에 정의까지 지웠다.
 from flightmath import (G, TERRAIN_MAX, air_density, fwd, ground_h, q_axis_angle,
                         q_from_heading, q_hpb, hpb_from_q, wrap_pi,
                         q_integrate, q_norm, right,
@@ -26,8 +28,6 @@ CFG = {
     "snapEvery": 2,             # 25Hz 스냅샷
     "worldR": 4500.0,           # 전장 반경(m). 좁을수록 바로 교전이 붙는다
     "ceiling": 17000.0,         # 실용 상승한계
-    "gLimit": 30.0,             # 구조 한계 G (아케이드 — 시선에 바로 붙도록)
-    "gLOC": 8.0,                # 이 이상 지속되면 시야가 좁아진다(블랙아웃)
     "planeR": 9.0,              # 피격 반경(m)
     "hpMax": 100.0,
     "respawn": 2.6,             # 격추 후 재출격 대기
@@ -48,7 +48,6 @@ CFG = {
     # 450발이 잡혀 스냅샷이 17KB까지 부풀었다. 가까운 것부터 이만큼만 보낸다.
     # 화면에 동시에 150발이 보이면 사람 눈으로는 이미 구분이 안 된다.
     "maxMissiles": 186,         # [정비공조절] 40~400
-    "stallWarnMargin": 0.85,    # 실속각의 85% 부터 경고
     # ── 렌더링 전용 (서버 물리는 이 값을 전혀 참조하지 않는다) ────
     # 방을 만들 때 한 번 정하고 **경기 중에는 고정**한다. 실시간으로
     # 흐르게 하면 태양 그림자를 주기적으로 다시 구워야 하고 재베이크
