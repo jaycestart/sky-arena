@@ -69,6 +69,18 @@ def current_build():
         pass
     return _BUILD_CACHE["value"]
 
+
+def _axis(v, lo=-1.0, hi=1.0, dflt=0.0):
+    """클라이언트가 보낸 조종 축 값을 범위 안의 **유한한** 수로 만든다.
+
+    NaN 을 그냥 min/max 에 넣으면 조용히 한쪽 끝에 붙는다 — 비교가 전부
+    False 라 `min(1.0, nan)` 은 1.0 이다. 그래서 NaN 피치가 '조종간을 끝까지
+    당김'으로 읽혔다. 유한하지 않으면 기본값으로 돌린다.
+    """
+    v = float(v)
+    return max(lo, min(hi, v)) if math.isfinite(v) else dflt
+
+
 class Client:
     def __init__(self, sock: WebSocket, plane):
         self.ws = sock
@@ -267,12 +279,15 @@ class Room:
         p = client.plane
         if t == "i":  # 조종 입력 — 망가진 값이 와도 연결을 끊지 않는다
             try:
-                p.c_pitch = max(-1.0, min(1.0, float(m.get("pi", 0))))
-                p.c_roll = max(-1.0, min(1.0, float(m.get("ro", 0))))
-                p.c_yaw = max(-1.0, min(1.0, float(m.get("ya", 0))))
-                p.throttle = max(0.0, min(1.0, float(m.get("th", 0.75))))
+                p.c_pitch = _axis(m.get("pi", 0))
+                p.c_roll = _axis(m.get("ro", 0))
+                p.c_yaw = _axis(m.get("ya", 0))
+                p.throttle = _axis(m.get("th", 0.75), 0.0, 1.0, 0.75)
+                # OverflowError 도 받는다 — int(float('inf')) 가 그것을 던진다.
+                # 이 세 줄이 던지는 예외는 여기서 전부 잡아야 한다. 빠져나가면
+                # session() 의 finally 가 곧바로 접속을 끊는다(위 줄의 약속 위반).
                 p.seq = int(m.get("q", p.seq))
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, OverflowError):
                 return
             p.ab = bool(m.get("ab"))
             p.brake = bool(m.get("br"))
@@ -293,9 +308,17 @@ class Room:
             p.last_input = self.world.time
             # 조준 방향(화면의 조준 원) — 없으면 기수 방향으로 쏜다
             aim = m.get("aim")
+            # 유한한 값만 받는다. json.loads 는 표준 JSON 에 없는 NaN·Infinity
+            # 까지 받아 주는데(파이썬 확장), 거르지 않으면 둘 다 물었다 —
+            # Infinity 는 n 도 무한대라 나눗셈이 NaN 을 만들어 p.aim 에 눌러앉고,
+            # 1e308 은 **제곱에서 OverflowError** 가 나 이 함수를 뚫고 나가
+            # 접속을 끊었다. 크기는 최대 성분으로 먼저 나눠서 잰다 — 그래야
+            # 제곱이 넘칠 자리가 없다.
             if (isinstance(aim, list) and len(aim) == 3
-                    and all(isinstance(v, (int, float)) for v in aim)):
-                n = math.sqrt(aim[0] ** 2 + aim[1] ** 2 + aim[2] ** 2)
+                    and all(isinstance(v, (int, float)) and math.isfinite(v)
+                            for v in aim)):
+                mx = max(abs(aim[0]), abs(aim[1]), abs(aim[2]))
+                n = mx * math.sqrt(sum((v / mx) ** 2 for v in aim)) if mx > 0.0 else 0.0
                 p.aim = (aim[0] / n, aim[1] / n, aim[2] / n) if n > 1e-6 else None
             else:
                 p.aim = None
