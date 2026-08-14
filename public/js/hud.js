@@ -655,13 +655,22 @@ export class Hud {
     });
     ctx.textAlign = 'right';
     const rx = this.w - 26;
+    // 로켓·유도탄은 탄약이 무제한이다. 서버는 잔량을 99 로 세팅만 하고 어디서도
+    // 줄이지 않으며(game.py:606 에 그 코멘트가 남아 있다) 발사를 막는 것은
+    // 쿨다운뿐이다(game.py:509·511 — "둘 다 탄약 무제한이다"). 그래서 s.am·s.ms
+    // 는 영원히 99 이고, 그 숫자를 띄우면 '99발 남았으니 아껴 쓰자' 는 게임에
+    // 없는 규칙을 화면이 지어내는 셈이다. 숫자를 빼고 무제한 기호만 남긴다.
+    // **플레어(s.fla)만 실제로 줄어든다**(game.py:627, CFG 20발) — 그쪽만
+    // 숫자와 0 경고를 유지한다.
+    // 재장전까지 남은 시간을 대신 띄우려면 서버가 fire_t·ms_cd 를 스냅샷에
+    // 실어야 한다. 지금 스냅샷에는 쿨다운이 없다 — BACKLOG 4순위로 넘겼다.
     const arm = [
-      ['RKT', s.am],
-      ['MSL', s.ms],
-      ['FLR', s.fla],
+      ['RKT', '∞'],
+      ['MSL', '∞'],
+      ['FLR', String(s.fla)],
     ];
     arm.forEach((row, i) => {
-      ctx.fillStyle = row[1] === 0 ? RED : GREEN;
+      ctx.fillStyle = row[1] === '0' ? RED : GREEN;
       ctx.fillText(row[0] + ' ' + row[1], rx, y0 + i * 18);
     });
     // 무장 선택 + 미사일 발사 가능 여부
