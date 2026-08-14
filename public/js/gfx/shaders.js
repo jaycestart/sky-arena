@@ -640,6 +640,13 @@ uniform vec4 uDefl;
 varying vec3 vN, vW, vAlb;
 varying vec2 vMR;
 varying vec3 vObj;
+// 기체 좌표계 법선. 카운터셰이딩(위 어둡고 아래 밝은 도장)을 **면이 향한
+// 쪽**으로 가르는 데 쓴다. 예전에는 vObj.y(위치)로 갈랐는데, 주익처럼
+// 납작한 면은 위아래가 같은 높이라 두 면 모두 위색과 아래색의 중간인 밝은
+// 회색이 됐다. 실측: 의도한 윗면 밝기 0.201 인데 주익 0.350, 동체 0.320.
+// 기체가 통째로 하얗게 보이던 원인이다(수직미익만 높이 있어 제대로 어두웠다).
+// 월드 법선을 쓰면 안 된다 — 기체가 구를 때마다 도장이 다시 칠해진다.
+varying vec3 vNObj;
 void main() {
   vec3 P = aPos, Nrm = aNorm;
   float fid = floor(aFlex);
@@ -687,6 +694,7 @@ void main() {
   // diag(k, k, 1) 을 쓰는데, 순수 반경 법선은 정규화 뒤 방향이 불변이고
   // 노즈콘·보트테일 법선만 기운다(그 배율이 서는 거리에서는 안 보인다).
   vN = normalize(mat3(uModel) * Nrm);
+  vNObj = normalize(Nrm);
   // **식별 틴트를 여기서 걸지 않는다.** 예전 vAlb = mix(aColor, uTint, uTintAmt)
   // 는 알베도를 통째로 치환해서 적기에서는 도장·정점 AO·패널라인이 전부
   // 사라졌고, 도장이 밝아지면 같은 uTintAmt 라도 강조 강도가 달라졌다.
@@ -711,6 +719,13 @@ export const FS_PBR = ATMO_GLSL + TONE_GLSL + NOISE_GLSL + PBR_GLSL + CLOUD_GLSL
 varying vec3 vN, vW, vAlb;
 varying vec2 vMR;
 varying vec3 vObj;
+// 기체 좌표계 법선. 카운터셰이딩(위 어둡고 아래 밝은 도장)을 **면이 향한
+// 쪽**으로 가르는 데 쓴다. 예전에는 vObj.y(위치)로 갈랐는데, 주익처럼
+// 납작한 면은 위아래가 같은 높이라 두 면 모두 위색과 아래색의 중간인 밝은
+// 회색이 됐다. 실측: 의도한 윗면 밝기 0.201 인데 주익 0.350, 동체 0.320.
+// 기체가 통째로 하얗게 보이던 원인이다(수직미익만 높이 있어 제대로 어두웠다).
+// 월드 법선을 쓰면 안 된다 — 기체가 구를 때마다 도장이 다시 칠해진다.
+varying vec3 vNObj;
 #ifdef SKIN
 varying vec2 vSkin;        // x = 정점 AO, y = 부품 코드
 #endif
@@ -763,8 +778,14 @@ void main() {
   // 원본이라 건드리면 안 된다 — 그래서 부품 코드로 가른다.
   bool painted = (part < 4.5) || (part > 8.5 && part < 9.5);
   if (uPaintAmt > 0.0 && painted) {
-    // vObj.y 기반 카운터셰이딩은 paint() 와 **같은 식**이다(상면 어둡고 하면 밝게).
-    float t = clamp(vObj.y * 0.55 + 0.5, 0.0, 1.0);
+    // 실제 전투기의 카운터셰이딩은 '위아래 절반씩'이 아니다. **배 밑만**
+    // 밝은 회색이고 옆면·수직미익·윗면은 전부 같은 위색이다. 그래서 법선의
+    // y 를 그대로 섞지 않고, 아래를 또렷이 볼 때만 아래색으로 넘어가게 한다.
+    //
+    // 단순히 vNObj.y*1.6+0.5 로 했더니 수직미익과 동체 옆면이 위아래 중간인
+    // 밝은 회색이 됐다(실측 0.206 -> 0.351). 그건 도장이 아니라 그냥 색이 뜬
+    // 것이다.
+    float t = 1.0 - smoothstep(-0.15, -0.78, vNObj.y);
     alb = mix(alb, mix(uPaintBot, uPaintTop, t), uPaintAmt);
     // 저주파 얼룩 — 시드로 흔들어 개체차를 만든다. fbm2(=vnoise 2회) 대신
     // vnoise 1회다. 이 블록은 기체 픽셀에서만 돌고 기체는 화면의 몇 %다.
