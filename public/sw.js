@@ -11,7 +11,7 @@
 // 그래서 **앱 코드(js/css/html)는 네트워크 전용**으로 바꿨다. 서버가 없으면
 // 깔끔하게 실패하는 편이 낫다 — 어차피 서버 없이는 게임이 안 된다.
 // 캐시는 아이콘·매니페스트처럼 코드가 아닌 것에만 쓴다(설치 요건).
-const CACHE = 'sky-arena-v20';
+const CACHE = 'sky-arena-v21';
 
 // 코드가 아닌 것만 미리 담는다. 설치가 이것 때문에 실패하면 안 된다.
 const SHELL = ['/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];

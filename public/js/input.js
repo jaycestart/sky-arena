@@ -255,7 +255,11 @@ export class Input {
     // 이동량 제한이 아니다. 계속 밀면 리시가 기수를 끌고 무한히 돈다.
     // 상호추종 루프와 데드존을 동시에 없애고, 스윙 기저의 조건수를 보장하며,
     // 기총 원뿔(서버 max_off)에 다시 의미를 준다.
-    const lim = (this.set?.leash ?? 55) * Math.PI / 180;
+    // 폴백은 main.js 의 실제 기본값과 같아야 한다. 55 로 적혀 있었는데 그건
+    // 두 판 전 값이다 — main.js 가 leashv 마이그레이션으로 28 도로 내릴 때
+    // 이 숫자만 안 따라왔다. main.js 가 언제나 settings 를 넘기므로 지금은
+    // 이 자리에 안 걸리지만, 걸리는 날에는 리시가 두 배로 벌어진다.
+    const lim = (this.set?.leash ?? 28) * Math.PI / 180;
     const LMAX = Math.min(lim, 2.62);            // 끄기(=180도)여도 150도로 막는다
     const off = Math.acos(clamp(v3.dot(this.aim, nose), -1, 1));
     if (off > LMAX) {

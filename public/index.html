@@ -82,7 +82,8 @@
       <div><b style="color:#7dfba6">점선 원</b> = 기수가 향한 곳. 조준점과 선으로 이어지면 기수가 아직 뒤처진 것입니다</div>
       <div><b style="color:#ffcc55">노란 마름모</b> = 맞히려면 겨눠야 할 지점. 십자를 여기 올리면 <b style="color:#ff4d4d">SHOOT</b></div>
       <div><b style="color:#ff9a3c">주황 X</b> = 조준점이 <b>기수에서 66도</b>를 넘었습니다. 탄이 조준점이 아니라
-        그 경계로 나갑니다 — 설정의 <b>조준점 여유</b>를 70도 이상으로 올렸을 때만 나옵니다</div>
+        그 경계로 나갑니다 — 설정의 <b>조준점 여유</b>를 <b>66도보다 크게</b> 올렸을 때만 나옵니다
+        <em>(기본값 28도)</em></div>
       <div>미사일은 <b>상대 꽁무니</b>에서 락온이 잘 걸립니다.</div>
     </div>
     <div class="note">아무 곳이나 클릭하면 닫힙니다</div>
@@ -98,7 +99,12 @@
     <label class="row"><span>마우스 감도 <em>cm/360 (800DPI 기준) — 작을수록 빠르다 · <b id="val-cm360"></b></em></span>
       <input type="range" id="set-cm360" min="5" max="40" step="1"></label>
     <label class="row"><span>조준점 여유 <em>조준점이 기수에서 벌어질 수 있는 각도 · <b id="val-leash"></b></em></span>
-      <input type="range" id="set-leash" min="25" max="90" step="5"></label>
+      <!-- step 은 1 이어야 한다. 5 로 두면 눈금이 25·30·35… 라서 실제 기본값
+           28도를 슬라이더가 아예 표현하지 못한다 — range 는 눈금에서 벗어난
+           value 를 가까운 눈금으로 스냅하므로, 설정을 열면 옆 숫자는 '28°'
+           인데 손잡이는 30 에 가 있었고 한 번 건드리면 28 로 돌아갈 방법이
+           없었다. -->
+      <input type="range" id="set-leash" min="25" max="90" step="1"></label>
     <label class="row"><span>상하 반전 <em>마우스를 내리면 기수가 올라간다</em></span>
       <input type="checkbox" id="set-invert"></label>
     <label class="row"><span>시야각(FOV)</span><input type="range" id="set-fov" min="55" max="100" step="1"></label>
