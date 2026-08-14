@@ -487,7 +487,18 @@ function onEvent(ev) {
     // ROCKET=0 · MISSILE=1). 여태 이 칸을 버리고 두 무기 모두 `missile()`
     // 하나로 울렸다 — 좌클릭과 우클릭이 소리로 구분되지 않았다.
     // 모르는 값(낡은 서버)이면 유도탄 쪽으로 둔다 — 여태 나던 소리다.
-    if (ev.k === 0) sfx.rocket(); else sfx.missile();
+    // 거리를 같이 넘긴다. `launch` 에는 위치가 없지만 서버는 이미 보내고
+    // 있다 — 시야(`viewR` 14km) 안이면 스냅샷 `p` 행, 밖이면 레이더 `rd` 다.
+    // 못 찾으면 null 을 넘겨 audio.js 가 '아주 멂'으로 본다(`_far`).
+    const mine = ev.id === world.myId;
+    let dist = 0;
+    if (!mine) {
+      const s = world.me && (world.byId(ev.id)
+                || (world.radar || []).find((r) => r.id === ev.id));
+      dist = s ? Math.hypot(s.pos[0] - world.me.pos[0], s.pos[1] - world.me.pos[1],
+                            s.pos[2] - world.me.pos[2]) : null;
+    }
+    if (ev.k === 0) sfx.rocket(dist, mine); else sfx.missile(dist, mine);
     scene.launchFx?.(ev.id);
   }
 }

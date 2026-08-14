@@ -1,5 +1,13 @@
 // 오디오 파일 없이 WebAudio 로 직접 합성하는 효과음.
 // 브라우저 정책상 첫 사용자 입력 이후에만 소리가 난다.
+
+// 발사음이 이 배율 아래면 **노드를 아예 안 만든다**(`_far` 참조). 0.04 는
+// 로켓 최대진폭 0.0035 — 마스터 게인(기본 0.5)을 지나면 0.0018 이라 사실상
+// 무음인데 그걸 내자고 노드 6개를 만들 이유가 없다. `1/(1+d/800)=0.04` 를
+// 풀면 19,200m 라, 전장(반경 4,500m) 안에서는 절대 안 걸린다 — 걸리는 것은
+// 천장 없이 위로 올라간 기체처럼 시야(`viewR` 14km) 밖의 레이더 표적뿐이다.
+const FAR_CUT = 0.04;
+
 export class Sfx {
   constructor() {
     this.ctx = null;
@@ -34,7 +42,14 @@ export class Sfx {
     if (this.master) this.master.gain.value = v;
   }
 
-  /** 같은 소리가 한꺼번에 겹쳐 터지는 것을 막는다 */
+  /** 같은 소리가 한꺼번에 겹쳐 터지는 것을 막는다.
+   *
+   *  발사음은 `rocket` / `rocket.me` 처럼 **내 것과 남의 것을 다른 칸으로**
+   *  센다. 예전에는 한 칸이라 남이 쏜 직후(70ms 안)에 내가 쏘면 **내 발사음이
+   *  통째로 먹혔다.** 24인 방에 봇까지 있으면 남의 발사가 계속 깔리므로
+   *  가장 중요한 소리가 가장 자주 지워지는 셈이었다. 서버 재장전이 로켓
+   *  0.42초·유도탄 0.9초라(`game.py` WEAPONS `cd`) 내 칸의 문턱은 어차피
+   *  한 번도 안 걸린다 — 내 발사음은 이제 **언제나 난다.** */
   _throttle(key, ms) {
     const now = performance.now();
     if (now - (this._last.get(key) || 0) < ms) return false;
@@ -74,6 +89,46 @@ export class Sfx {
     o.stop(stop);
   }
 
+  /** 발사음의 거리 감쇠 배율.
+   *
+   *  `launch` 이벤트에는 **쏜 사람(`id`)만** 있고 어디서 쐈는지가 없다. 그래서
+   *  여태 지도 반대편 발사가 내 코앞에서 난 것과 **똑같은 크기**로 들렸다
+   *  (BACKLOG 6순위 곁다리). 위치는 서버가 이미 보내고 있으므로 — 시야
+   *  (`viewR` 14km) 안이면 스냅샷 `p` 행, 밖이면 레이더 `rd` — `main.js` 가
+   *  그것으로 거리를 재서 넘긴다. **소리 자체는 안 건드린다. 게인만 곱한다.**
+   *
+   *  식은 `1/(1 + d/800)` 이다. 구면 확산의 1/d 를 0m 에서 발산하지 않게 고친
+   *  흔한 꼴이고, 반감 거리 800m 는 **이 게임의 기본 교전 눈금**을 그대로 쓴
+   *  것이다(락온이 없을 때 조준경이 쓰는 사거리가 상수 800 이다, `hud.js`).
+   *
+   *  진짜 브라우저 Web Audio 로 렌더링해 잰 값이다(마스터 1.0 기준, 노이즈
+   *  난수를 고정한 하네스라 2026-08-14 이 적어 둔 0.088 과 난수열만 다르다).
+   *
+   *  | 거리 | 배율 | 로켓 최대진폭 | 유도탄 |
+   *  |---|---|---|---|
+   *  | 0 (내 발사) | 1.000 | 0.0785 | 0.0674 |
+   *  | 800 (기총 사거리) | 0.500 | 0.0404 | 0.0350 |
+   *  | 2,000 | 0.286 | 0.0236 | 0.0206 |
+   *  | 4,500 (전장 반경) | 0.151 | 0.0128 | 0.0113 |
+   *  | 9,000 (전장 지름) | 0.082 | 0.0071 | 0.0063 |
+   *
+   *  실측 진폭비가 배율보다 조금씩 크다(9,000m 에서 0.091 대 0.082). `_env`
+   *  의 바닥 0.0001 이 **절대값**이라 작은 소리일수록 지수 봉투가 지나는
+   *  자릿수가 적어 상대적으로 완만해지기 때문이다. 방향과 크기가 다 맞아
+   *  그대로 둔다 — 소리를 바꾸는 것이 아니라 게인만 곱하는 것이 목적이다.
+   *
+   *  **내 발사음은 한 치도 안 바뀐다** — d=0 이면 배율이 정확히 1.0 이고,
+   *  같은 하네스에서 인자 없는 옛 호출과 최대진폭이 **소수점 6자리까지
+   *  같다**(0.078491).
+   *
+   *  거리를 못 구하면(스냅샷에도 레이더에도 없는 id) 전장 지름 9,000m 로
+   *  본다. 예전처럼 원래 크기로 되돌리면 못 찾는 순간마다 가장 큰 소리가
+   *  나므로, 모를 때는 **조용한 쪽**으로 틀린다. */
+  _far(dist) {
+    const d = Number.isFinite(dist) ? Math.max(0, dist) : 9000;
+    return 1 / (1 + d / 800);
+  }
+
   /** 로켓(무유도) 발사 — 짧고 날카롭게.
    *  좌클릭이고 서버 재장전이 0.42초(`game.py` WEAPONS[ROCKET].cd)라 자주
    *  울린다. 그래서 짧아야 한다 — 길면 연사할 때 서로 겹쳐 뭉갠다.
@@ -81,8 +136,12 @@ export class Sfx {
    *    · 어택 3ms — 소리가 '탁' 하고 앞에서 선다.
    *    · 하이패스 1100Hz — 고역만 남겨 파열음으로 들린다.
    *  유도탄은 정확히 반대로 잡았다(어택 40ms · 로우패스). */
-  rocket() {
-    if (!this.enabled || !this.ctx || !this._throttle('rocket', 70)) return;
+  /*  `dist` 는 발사 지점까지의 거리(m), `mine` 은 내가 쐈는지다(`_far`·
+   *  `_throttle` 주석 참조). 인자를 안 주면 예전 그대로 — 감쇠 없는 내 발사다. */
+  rocket(dist = 0, mine = true) {
+    const vol = this._far(dist);
+    if (!this.enabled || !this.ctx || vol < FAR_CUT) return;
+    if (!this._throttle(mine ? 'rocket.me' : 'rocket', 70)) return;
     const src = this._noise(0.09);
     const hp = this.ctx.createBiquadFilter();
     hp.type = 'highpass';
@@ -92,11 +151,11 @@ export class Sfx {
     // 최대진폭 0.142 로 **폭발음(0.145)과 거의 같았다.** 0.42초마다 울리는
     // 소리가 폭발만큼 크면 금방 피곤해진다. 날카로움은 크기가 아니라
     // 어택(3ms)과 고역(하이패스)에서 나오므로 크기만 30% 내렸다.
-    const { stop } = this._env(hp, 0.062, 0.003, 0.085);
+    const { stop } = this._env(hp, 0.062 * vol, 0.003, 0.085);
     src.start();
     src.stop(stop);
     // 떠나는 소리 — 빠르게 아래로 훑는다. 초속 900 으로 나가는 탄이다.
-    this.tone(880, 0.07, 'square', 0.032, 300);
+    this.tone(880, 0.07, 'square', 0.032 * vol, 300);
   }
 
   hit() {
@@ -138,8 +197,10 @@ export class Sfx {
    *  (`game.py` WEAPONS[MISSILE] `muzzle`·`burn`). 뭉근하게 점화해 멀어진다.
    *    · 어택 40ms(점화) · 55ms(모터) — 앞이 서지 않고 밀려 나온다.
    *    · 로우패스 1100→260Hz — 고역을 걷어 멀어지는 것처럼 들린다. */
-  missile() {
-    if (!this.enabled || !this.ctx || !this._throttle('missile', 130)) return;
+  missile(dist = 0, mine = true) {
+    const vol = this._far(dist);
+    if (!this.enabled || !this.ctx || vol < FAR_CUT) return;
+    if (!this._throttle(mine ? 'missile.me' : 'missile', 130)) return;
     const t = this.ctx.currentTime;
     // 점화 — 낮게 '쿵'. 로켓의 파열음과 달리 고역이 없다.
     // `tone()` 을 안 쓰고 직접 짠 이유: tone 은 어택이 5ms 로 박혀 있어
@@ -148,7 +209,7 @@ export class Sfx {
     o.type = 'sawtooth';
     o.frequency.setValueAtTime(150, t);
     o.frequency.exponentialRampToValueAtTime(82, t + 0.22);
-    const body = this._env(o, 0.075, 0.04, 0.2);
+    const body = this._env(o, 0.075 * vol, 0.04, 0.2);
     o.start(t);
     o.stop(body.stop);
     const src = this._noise(0.6);
@@ -157,7 +218,7 @@ export class Sfx {
     lp.frequency.setValueAtTime(1100, t);
     lp.frequency.exponentialRampToValueAtTime(260, t + 0.55);
     src.connect(lp);
-    const { stop } = this._env(lp, 0.1, 0.055, 0.5);
+    const { stop } = this._env(lp, 0.1 * vol, 0.055, 0.5);
     src.start();
     src.stop(stop);
   }
