@@ -649,8 +649,30 @@ export class Hud {
       ['G', s.g.toFixed(1)],
       ['THR', Math.round(s.thr * 100) + '%' + (s.ab ? ' AB' : '')],
     ];
+    // G 칸의 호박색 문턱(7)은 걷어냈다 — warnings() 의 'OVER G'(8.5)와 같은
+    // 이유다. 서버의 gload 는 물리량이 아니라 **피치 명령을 옮겨 적은 표시용
+    // 수치**다: `1.0 + |pr| * 4.0`, `pr = 피치명령 × pitchRate`(game.py:370·406).
+    //
+    // 그래서 문턱이 기체 제원과 무관해진다. 기수 추종 제어기가 명령을
+    // `dP / pitchRate * 9.0` 으로 만들므로(input.js KP) pitchRate 가 약분되고
+    // `gload = 1 + 36·dP` 만 남는다 — 세 기종 모두 **피치 조준 오차 9.5도에서
+    // 호박색, 11.9도에서 OVER G** 였다(순수 피치 오차 기준. 좌우 오차가 섞이면
+    // 정규화로 조금 늦춰진다). 기본 리시가 28도인데 그 3분의 1만 벌어져도
+    // 뜨고, 지면 회피 보조는 피치를 1.0 까지 밀어(input.js) 작동할 때마다 떴다.
+    //
+    // 넘겨도 아무 일이 없다. gLimit(falcon·eagle 30 · flanker 28)은 어디서도
+    // 강제되지 않고(game.py:398), 애초에 이 식의 최대값(18.2 · 15.2 · 20.2)이
+    // 거기 닿지도 못한다. `RKT 99` 를 걷어낸 것과 같은 종류다 — 화면이 게임에
+    // 없는 규칙을 지어내고 있었다.
+    //
+    // 숫자는 남긴다 — 조종간을 얼마나 당기고 있는지는 읽을 값이다. 다만
+    // **이 한 줄이 스냅샷 `me.g` 의 유일한 독자**라는 것은 알아 둘 것.
+    // 익단 와류는 예전엔 `srv.g > 6` 이었지만 지금은 자세 차분에서 뽑은
+    // `pl.rate[1]` 로 옮겨 갔다(scene.js:1705 주석). 그러니 이 줄까지 빼면
+    // `me.g` 는 아무도 안 읽는 칸이 된다 — 그때는 서버와 **같은 커밋**에서
+    // 빼야 한다(4순위 `st` 와 같은 부류).
+    ctx.fillStyle = GREEN;
     rows.forEach((row, i) => {
-      ctx.fillStyle = (row[0] === 'G' && Math.abs(s.g) > 7) ? AMBER : GREEN;
       ctx.fillText(row[0].padEnd(4) + row[1], x, y0 + i * 18);
     });
     ctx.textAlign = 'right';
@@ -798,7 +820,8 @@ export class Hud {
     // stalling 을 False 로 두고 바꾸지 않고, stallGuard 를 세팅하는 코드는
     // 어디에도 없어서 둘 다 도달할 수 없는 경고였다.
     if (s.agl < 300 && s.vy < 0) msgs.push(['PULL UP', RED]);
-    if (Math.abs(s.g) > 8.5) msgs.push(['OVER G', AMBER]);
+    // 'OVER G'(8.5) 는 걷어냈다 — 근거는 corners() 의 G 칸 주석에 있다.
+    // 요약하면 피치 조준 오차 11.9도에서 뜨는, 결과가 없는 경고였다.
     if (inp?.groundWarn) msgs.push(['지면 회피 보조 작동', GREEN]);
     if (!msgs.length) return;
     ctx.save();
