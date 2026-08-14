@@ -39,7 +39,6 @@ export class World {
     this.hurtFlash = 0;
     this.stats = { kbps: 0 };
     this._prevAlive = new Map();
-    this._prevMs = 0;
     this._prevRwr = 0;
   }
 
@@ -146,8 +145,8 @@ export class World {
     // 발사음은 여기서 내지 않는다. **내 유도탄 잔량이 줄었을 때만** 울리던
     // 경로라 (a) 내 로켓은 평생 소리가 안 났고 (b) 남·봇과 다른 코드가
     // 울렸다. 이제 launch 이벤트 한 곳(main.js onEvent)이 사람·봇·나를
-    // 구분 없이 처리한다. _prevMs 는 다른 곳에서 쓸 수 있으니 추적만 남긴다.
-    this._prevMs = me.ms;
+    // 구분 없이 처리한다. 잔량 추적(_prevMs)은 2026-08-14 에 지웠다 —
+    // 서버가 am · ms 를 아예 안 보낸다.
     if (me.rwr > this._prevRwr) this.sfx?.warn();
     this._prevRwr = me.rwr;
     if (prev?.al && !me.al) this.sfx?.explode();

@@ -168,13 +168,13 @@ DEFAULT_CLASS = DEFAULT_AIRCRAFT
 WEAPONS = [
     {"key": "rocket", "label": "무유도 로켓", "icon": "▲",
      "desc": "유도가 없다. 대신 매우 빠르고 한 방이 크다. 겨눈 곳으로 직진.",
-     "ammo": 99, "cd": 0.42, "dmg": 46.0, "fuse": 40.0,
+     "cd": 0.42, "dmg": 46.0, "fuse": 40.0,
      "burn": 1.2, "thrust": 60000.0, "mass": 60.0, "maxG": 0.0,
      "seeker": 0.0, "range": 7000.0, "life": 7.0, "lockTime": 0.0,
      "lockCone": 0.0, "rearAspect": 1.0, "muzzle": 900.0, "arm": 0.06},
     {"key": "aim9", "label": "IR 미사일", "icon": "➤",
      "desc": "후방 추적. 발사 후 자율 유도. 플레어에 속는다.",
-     "ammo": 99, "cd": 0.9, "dmg": 30.0, "fuse": 45.0,
+     "cd": 0.9, "dmg": 30.0, "fuse": 45.0,
      "burn": 4.0, "thrust": 17000.0, "mass": 85.0, "maxG": 420.0,
      "seeker": 3.00, "range": 9000.0, "life": 26.0, "lockTime": 0.18,
      "lockCone": 0.95, "rearAspect": 1.9, "arm": 0.35},
@@ -304,8 +304,6 @@ class Plane:
         self.alive = True
         self.respawn_t = 0.0
         self.invuln = CFG["spawnInvuln"]
-        self.ammo = WEAPONS[ROCKET]["ammo"]
-        self.missiles = WEAPONS[MISSILE]["ammo"]
         self.flares = CFG["flares"]
         self.fire_t = 0.0
         self.ms_cd = 0.0
@@ -315,10 +313,8 @@ class Plane:
         self.locked_by = 0
         self.rwr = 0            # 나를 향해 날아오는 미사일 수
         self.gload = 1.0
-        self.aoa = 0.0
         self.mach = 0.0
         self.stalling = False
-        self.blackout = 0.0
         self.last_hit_t = -99.0
         self.last_hit_by = 0
         self.streak = 0
@@ -383,10 +379,8 @@ class Plane:
         self.pos[2] += self.vel[2] * dt
 
         self.mach = spd / 340.0
-        self.aoa = 0.0
         self.gload = 1.0 + abs(pr) * 4.0
         self.stalling = False
-        self.blackout = 0.0
         # 옛 항공역학 분기(양력·항력·실속·G 한계)는 지웠다 — 위 아케이드
         # 분기가 항상 return 하므로 절대 실행되지 않는 코드였다.
         # 짝인 world.js `_integrate` 의 같은 블록도 같은 커밋에서 지웠다.
@@ -603,8 +597,7 @@ class World:
         else:
             p.ms_cd = spec["cd"]
             target = p.lock_id if p.lock_t >= spec["lockTime"] else 0
-            # p.missiles 는 어디서도 줄지 않아 99 로 고정이었다. 여기도 늘
-            # 같은 쪽이었다.
+            # 로켓 쪽과 같은 이유로 여기도 늘 같은 파일런에서만 나갔다.
             side = -1.0 if p.shots % 2 else 1.0
             muzzle = 400.0
         # 발사점은 **기체 좌표계** 값이라 메시 배율을 같이 먹여야 한다.
@@ -1100,6 +1093,11 @@ class World:
         if viewer:
             v = viewer
             spd = v_len(tuple(v.vel))
+            # aoa · bo · am · ms 네 칸은 2026-08-14 에 뺐다. 앞 둘은 옛 항공역학
+            # 분기가 사라진 뒤로 영원히 0 이었고, 뒤 둘은 탄약이 어디서도 줄지
+            # 않아 영원히 99 였다 — 넷 다 클라이언트에서 읽는 곳이 0건이라 매 틱
+            # 그냥 버려지고 있었다. 되살릴 거라면 값을 실제로 움직이는 코드부터
+            # 만들어라. (st 는 아직 scene.js · main.js 가 읽어서 남겨 뒀다.)
             snap["me"] = {
                 # 자릿수를 줄인다. 파이썬 float 을 그대로 실으면 좌표 하나가
                 # 1234.5678901234567 처럼 18자가 되는데, 화면에서 1cm 차이는
@@ -1110,12 +1108,12 @@ class World:
                 # 자세에서 되뽑을 때 뒤집힌 해가 나오므로 그대로 내려보낸다.
                 "hpb": [round(v.hdg, 6), round(v.pit, 6), round(v.bnk, 6)],
                 "vx": round(v.vel[0], 2), "vy": round(v.vel[1], 2), "vz": round(v.vel[2], 2),
-                "sp": round(spd, 2), "mach": round(v.mach, 3), "aoa": round(v.aoa, 4),
-                "g": round(v.gload, 2), "bo": round(v.blackout, 2),
+                "sp": round(spd, 2), "mach": round(v.mach, 3),
+                "g": round(v.gload, 2),
                 "hp": round(max(0.0, v.hp), 1), "al": 1 if v.alive else 0,
                 "rt": round(max(0.0, v.respawn_t), 2), "iv": round(v.invuln, 2),
                 "thr": round(v.throttle, 2), "ab": 1 if v.ab else 0,
-                "am": v.ammo, "ms": v.missiles, "fla": v.flares,
+                "fla": v.flares,
                 "lk": v.lock_id if v.lock_t >= WEAPONS[MISSILE]["lockTime"] else 0,
                 "lkt": round(v.lock_t, 2), "lw": v.locked_by, "rwr": v.rwr,
                 "st": 1 if v.stalling else 0, "sc": v.score, "kl": v.kills,
