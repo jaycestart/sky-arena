@@ -55,7 +55,9 @@ function naca(xc, t) {
  *  그대로 유지한다. */
 function paint(y) {
   const t = Math.max(0, Math.min(1, y * 0.55 + 0.5));
-  return [lerp(0.27, 0.17, t), lerp(0.29, 0.19, t), lerp(0.28, 0.20, t)];
+  // scene.js 의 PAINT 표와 같은 노출 보정을 적용한다. 이 값은 도장이
+  // 칠해지지 않는 면의 바탕색이라 둘이 크게 어긋나면 이음매가 보인다.
+  return [lerp(0.155, 0.096, t), lerp(0.166, 0.108, t), lerp(0.160, 0.113, t)];
 }
 
 // ── 렌더 부품 코드 (aSkin.y) ─────────────────────────────────────────
