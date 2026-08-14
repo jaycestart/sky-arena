@@ -579,7 +579,14 @@ class World:
         if d > CFG["worldR"]:
             if p.invuln <= 0:
                 p.hp -= 20.0 * dt
-                p.last_hit_t = self.time
+                # last_hit_t 는 **갱신하지 않는다.** 이 값의 독자는 위 지면
+                # 충돌의 "최근 4초 안에 맞았으면 그 사람에게 격추를 준다"
+                # 한 줄뿐인데, 이탈 피해에는 때린 사람이 없어 짝인
+                # last_hit_by 는 그대로 남는다. 그래서 여기서 시각만 밀면
+                # 그 규칙이 아주 오래된 상대를 가리킨 채 되살아났다 —
+                # 61초 전에 한 번 스친 상대가 내 자폭으로 격추 1 · 점수 120
+                # 을 가져갔다(QA 재현). 아래 self._kill(p, None) 이
+                # 이탈사에는 아무에게도 격추를 안 주는 것과도 어긋난다.
             if p.hp <= 0:
                 self._kill(p, None)
         if p.pos[1] > CFG["ceiling"]:
