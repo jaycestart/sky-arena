@@ -212,8 +212,31 @@ export class Hud {
     // 조준경은 항상 그린다.
     const me = W.me.pos;
     const myVel = [s.vx, s.vy, s.vz];
-    const muzzle = this.world.weapons?.[0]?.muzzle ?? 1030;
     const g = 9.80665;
+    // 로켓 제원은 welcome 으로 내려온 값만 쓴다. 숫자를 손으로 베껴 두면
+    // 서버를 고쳤을 때 화면만 조용히 어긋난다 — targets() 의 lockTime 이
+    // 정확히 그렇게 어긋난 적이 있다. 여기에도 muzzle 1030 · 사거리 2880
+    // 이라는, 지금 서버 어디에도 없는 숫자가 폴백으로 박혀 있었다
+    // (실제 제원은 900m/s · 13,980m). 제원이 아직 안 왔으면(welcome 전
+    // 한두 프레임) 리드도 사거리 판정도 건너뛴다 — 모르면 말을 안 한다.
+    const spec0 = W.weapons?.[0];
+    const accel = spec0 ? spec0.thrust / spec0.mass : 0;
+    // 로켓이 수명 동안 갈 수 있는 거리. burn 초는 등가속, 그 뒤는 다 태워
+    // 얻은 속도(muzzle + accel*burn)로 등속.
+    //
+    // **사거리를 계산하는 곳은 여기 하나뿐이어야 한다.** 예전에는 SHOOT
+    // 판정이 이 등가속 식을, 바로 아래 '사거리 밖' 배지가 옛 등속 식
+    // (muzzle * life = 6,300m)을 따로 썼다. 실제 도달 거리를 서버
+    // _step_missiles 로 적분해 재면 출격 속도 450m/s 에서 14,177m 라
+    // 등속 식은 2.2배 짧다. 그래서 락온 거리 6.3~9km 에서 'SHOOT' 과
+    // '사거리 밖'이 같은 화면에 동시에 떴다 — 한쪽은 쏘라고, 한쪽은
+    // 안 닿는다고. 항력을 빼고 발사기 속도도 빼면 두 오차가 서로 상쇄돼
+    // 이 식이 실측의 −1.4% 안에 든다(1450m/s 에서는 33% 보수적이다 —
+    // '못 닿는다'고 말하는 쪽은 보수적인 게 안전하다).
+    const maxR = spec0
+      ? spec0.muzzle * spec0.burn + 0.5 * accel * spec0.burn * spec0.burn
+        + (spec0.muzzle + accel * spec0.burn) * (spec0.life - spec0.burn)
+      : 0;
 
     // 가장 유력한 목표: 락온 대상, 없으면 조준선에 가장 가까운 적
     let tgt = W.byId(s.lk);
@@ -264,10 +287,8 @@ export class Hud {
     // range/muzzle 로 되돌려서 세 번 돌아도 한 번 돈 것과 결과가 같았다.
     // 주석은 '2회 반복 수렴'이라 적혀 있었는데 수렴 절차 자체가 없었다.
     let lead = null, aligned = false;
-    if (tgt && pip) {
-      const spec0 = W.weapons?.[0];
-      const accel = spec0 ? spec0.thrust / spec0.mass : 1000;
-      const burn = spec0 ? spec0.burn : 1.2;
+    if (tgt && pip && spec0) {
+      const muzzle = spec0.muzzle, burn = spec0.burn;
       // 거리 d 를 나는 데 걸리는 시간. burn 안에 도달하면 등가속 해,
       // 그 뒤로는 다 태우고 얻은 속도로 등속.
       const flightTime = (d) => {
@@ -279,8 +300,17 @@ export class Hud {
       };
       let t = flightTime(range);
       let aim = null;
-      // 이번에는 진짜로 수렴시킨다 — 리드 지점이 옮겨지면 거리도 달라지고
-      // 거리가 달라지면 비행시간도 달라진다.
+      // ⚠ 이 반복문은 **아직도 아무 일도 하지 않는다.** 위 주석이 '이번에는
+      // 진짜로 수렴시킨다' 고 적어 두었지만 사실이 아니다 — aim 을 언제나
+      // `me + dn * range` 로, 즉 반지름 range 인 구면 위로 되쏘기 때문에
+      // |aim − me| 가 항등적으로 range 다. 그래서 t = flightTime(range) 가
+      // 매 회차 같은 값으로 다시 계산되고 세 회차의 dn 이 소수점 아래까지
+      // 똑같다(실측: 800m 교차 표적에서 세 번 모두 t=0.652417s).
+      // 제대로 수렴시키려면 표적의 **미래 위치까지의 상대거리**
+      // |rel + (tv − myVel)·t| 로 t 를 다시 구해야 한다. 그렇게 고치면 같은
+      // 표적에서 t 가 0.433s(−50.6%), 조준 방향이 24.8도 옮겨간다.
+      // 어느 모델이 옳은지는 아직 못 박지 못했다 — BACKLOG 'HUD 리드 마커의
+      // 수렴 루프' 항목에 측정과 함께 넘겼다. 지금은 **동작을 바꾸지 않는다.**
       for (let i = 0; i < 3; i++) {
         const rel = v3.sub(tgt.pos, me);
         const tv = tgt.vel || [0, 0, 0];
@@ -293,13 +323,6 @@ export class Hud {
       lead = this.scene.project(aim);
       // 탄이 조준 원 방향으로 나가므로, 원이 리드 지점에 닿으면 명중이다
       if (lead) {
-        // 사거리도 등속으로 잡아 6300m 로 계산하고 있었다. 실제 로켓은
-        // 다 태운 뒤 muzzle + accel*burn 으로 나므로 12km 를 넘게 간다.
-        // 짧게 잡으면 맞는 거리인데도 '사거리 밖'이 떠서 쏘기를 망설이게 된다.
-        const vEnd = muzzle + accel * burn;
-        const maxR = spec0
-          ? muzzle * burn + 0.5 * accel * burn * burn + vEnd * (spec0.life - burn)
-          : 2880;
         // 원뿔 밖이면 탄이 조준점으로 나가지 않으므로 SHOOT 을 띄우면 거짓말이다
         aligned = !outside && range <= maxR
           && Math.hypot(lead[0] - pip[0], lead[1] - pip[1]) < 30;
@@ -374,10 +397,10 @@ export class Hud {
       }
     }
     if (pip) {
-      // 기총이 닿는 거리인지 명확히 알려 준다(멀면 아무리 쏴도 안 맞는다)
-      const spec = W.weapons?.[0];
-      const maxRange = spec ? spec.muzzle * spec.life : 2880;
-      const inRange = !tgt || range <= maxRange;
+      // 로켓이 닿는 거리인지 알려 준다(멀면 아무리 쏴도 안 맞는다).
+      // 위 SHOOT 판정과 **같은 maxR** 을 쓴다. 제원이 없으면 아무 말도 안
+      // 한다 — 모르는 채로 '사거리 밖'을 띄우면 그게 거짓말이다.
+      const inRange = !tgt || !maxR || range <= maxR;
       ctx.fillStyle = inRange ? GREEN : RED;
       ctx.font = '600 11px ui-monospace, monospace';
       ctx.fillText(Math.round(range) + 'm', pip[0], pip[1] + 48);
