@@ -160,6 +160,54 @@ export class Sfx {
     } catch { /* 이미 정지 */ }
   }
 
+  /** 바람 소리 — 속도가 붙을수록 커지는 광대역 잡음. 저공에서 더 크다.
+   *  속도 눈금은 서버 CFG 를 그대로 따랐다(`game.py` `arcMin`·`arcMax`·
+   *  `arcBoost`): 스로틀 0 이 300, 최대 830, 애프터버너가 1450 m/s 다.
+   *  제동 중(최저 165)에는 들리지 않게 260 을 문턱으로 뒀다.
+   *  엔진음과 같은 방식이다 — 노이즈 루프 하나를 만들어 두고 매 프레임
+   *  주파수와 게인만 옮긴다. 새로 만들면 소리가 끊기고 CPU 를 먹는다. */
+  wind(speed, agl) {
+    if (!this.enabled || !this.ctx) { this.stopWind(); return; }
+    if (!this._wind) {
+      const src = this._noise(2.0);
+      src.loop = true;
+      // 하이패스로 저역을 덜어 엔진음(대역 180~700Hz)과 자리를 나눈다.
+      // 겹쳐 두면 둘 다 웅웅거리기만 하고 속도가 안 들린다.
+      const hp = this.ctx.createBiquadFilter();
+      hp.type = 'highpass';
+      hp.frequency.value = 240;
+      const lp = this.ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 700;
+      const g = this.ctx.createGain();
+      g.gain.value = 0.0001;
+      src.connect(hp).connect(lp).connect(g).connect(this.master);
+      src.start();
+      this._wind = { src, lp, g };
+    }
+    const w = this._wind;
+    const t = this.ctx.currentTime;
+    const u = Math.max(0, Math.min(1, ((speed || 0) - 260) / 1190));
+    // 저공일수록 크게 — 지면에서 1.55배, 600m 위로는 그대로.
+    // 600m 는 BACKLOG 2순위가 저공으로 잡아 둔 높이와 같은 눈금이다.
+    const low = 1 - Math.max(0, Math.min(1, (agl || 0) / 600));
+    // 최대 0.06. 엔진음(최대 0.17)보다 확실히 아래에 둔다 — 바람이
+    // 엔진을 덮으면 스로틀이 안 들린다.
+    w.g.gain.setTargetAtTime(0.0001 + 0.06 * Math.pow(u, 1.2) * (1 + 0.55 * low), t, 0.25);
+    // 빠를수록 밝게(쉬익), 느릴수록 둔하게.
+    w.lp.frequency.setTargetAtTime(500 + u * 2600, t, 0.3);
+  }
+
+  stopWind() {
+    if (!this._wind) return;
+    const { src, g } = this._wind;
+    this._wind = null;
+    try {
+      g.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.25);
+      src.stop(this.ctx.currentTime + 0.35);
+    } catch { /* 이미 정지 */ }
+  }
+
   /** 부스트 중에는 노이즈 루프를 계속 흘린다 */
   boost(on) {
     if (!this.enabled || !this.ctx) return;
