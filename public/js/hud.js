@@ -116,22 +116,8 @@ export class Hud {
     ctx.restore();
   }
 
-  // ── 수평선 ────────────────────────────────────────────────────
-  // 화면 중앙을 어지럽히던 피치 사다리는 걷어내고 수평선만 남긴다.
-  pitchLadder(ctx, cx, cy, pitch, roll) {
-    const pxPerDeg = this.h / 90;
-    const y = pitch * 180 / Math.PI * pxPerDeg;
-    if (Math.abs(y) > this.h * 0.52) return;
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(roll);
-    ctx.globalAlpha *= 0.55;
-    ctx.beginPath();
-    ctx.moveTo(-this.w * 0.42, y); ctx.lineTo(-96, y);
-    ctx.moveTo(96, y); ctx.lineTo(this.w * 0.42, y);
-    ctx.stroke();
-    ctx.restore();
-  }
+  // 화면 중앙의 피치 사다리는 어지럽다는 지적을 받아 걷어냈다. 되살리지 말 것.
+  // 남아 있던 pitchLadder() 는 draw() 가 부르지 않는 죽은 코드라 지웠다.
 
   // ── 방위 테이프 ───────────────────────────────────────────────
   headingTape(ctx, cx, hdg) {
@@ -656,9 +642,11 @@ export class Hud {
     ctx.textAlign = 'left';
     ctx.font = '600 12px ui-monospace, monospace';
     const x = 26, y0 = this.h - 132;
+    // AOA 칸은 뺐다. 서버(game.py)가 v.aoa 를 0.0 으로 두고 한 번도 바꾸지
+    // 않아 화면에는 영원히 '0.0°' 만 찍혔다 — 옛 항공역학 분기의 잔재다.
+    // 서버가 실제 받음각을 보내기 시작하면 그때 되살린다.
     const rows = [
       ['G', s.g.toFixed(1)],
-      ['AOA', (s.aoa * 180 / Math.PI).toFixed(1) + '°'],
       ['THR', Math.round(s.thr * 100) + '%' + (s.ab ? ' AB' : '')],
     ];
     rows.forEach((row, i) => {
@@ -792,11 +780,12 @@ export class Hud {
       msgs.push([th.tti < 2.5 ? 'MISSILE — 회피!' : 'MISSILE', RED]);
     } else if (s.rwr > 0) msgs.push(['MISSILE', RED]);
     else if (s.lw) msgs.push(['LOCKED', AMBER]);
-    if (s.st) msgs.push(['STALL', AMBER]);
+    // STALL(s.st) 과 '실속 방지 보조'(inp.stallGuard) 는 뺐다. 서버가
+    // stalling 을 False 로 두고 바꾸지 않고, stallGuard 를 세팅하는 코드는
+    // 어디에도 없어서 둘 다 도달할 수 없는 경고였다.
     if (s.agl < 300 && s.vy < 0) msgs.push(['PULL UP', RED]);
     if (Math.abs(s.g) > 8.5) msgs.push(['OVER G', AMBER]);
     if (inp?.groundWarn) msgs.push(['지면 회피 보조 작동', GREEN]);
-    if (inp?.stallGuard) msgs.push(['실속 방지 보조 작동', GREEN]);
     if (!msgs.length) return;
     ctx.save();
     ctx.textAlign = 'center';
