@@ -140,7 +140,7 @@ if (!scene.ok) {
 // 꺼내 준 예전 코드가 며칠씩 살아남는다 — 사용자에게는 '그래픽이 갑자기
 // 옛날로 돌아갔다'로 보인다(구형 렌더러 시절 번들이라 실제로 그렇다).
 // 사람이 눈치채고 조치하기를 기대하지 말고 스스로 복구한다.
-export const BUILD = '2026-08-15a';
+export const BUILD = '2026-08-15b';
 
 // 화면 오른쪽 아래에 빌드 날짜를 띄우려고 월드에 넘긴다. 반드시 위
 // 선언 **뒤**여야 한다 — const 는 선언 전에 쓰면 ReferenceError 로
@@ -568,7 +568,10 @@ function loop(now) {
 
     world.predict(dt, cmd, seq);
     if (world.srv?.al) {
-      sfx.engine(cmd.throttle, cmd.ab);
+      // 스로틀은 **내 손**이라 예측값(`cmd`)이 맞다 — 레버는 즉시 움직인다.
+      // 속도는 서버가 보낸 실제값이라야 한다. 둘을 섞는 게 아니라 갈라
+      // 넣는 것이다: 레버는 지금, 기체는 아직 따라오는 중.
+      sfx.engine(cmd.throttle, cmd.ab, world.srv.sp);
       // 바람은 예측값이 아니라 서버가 보낸 실제 속도·고도로 운다.
       sfx.wind(world.srv.sp, world.srv.agl);
       // 지면 경고도 같은 이유로 서버 `agl` 만 본다. 예측값을 쓰면 되감기

@@ -170,8 +170,31 @@ export class Sfx {
   }
   roll() { this.tone(300, 0.18, 'sine', 0.08, 640); }
 
-  /** 제트 엔진음 — 스로틀에 따라 음높이와 세기가 변한다 */
-  engine(throttle, ab) {
+  /** 제트 엔진음 — 스로틀이 음높이와 세기를, **속도는 음높이만** 옮긴다.
+   *
+   *  속도를 세기에 붙이면 안 된다. 바람 소리(`wind()`)가 이미 속도를 세기로
+   *  말하고 있어 둘이 같은 말을 하게 된다. 그래서 엔진은 음높이 한 축만 더
+   *  쓰고, 대역(`bp`)과 오실레이터(`osc`)에 **같은 배율**을 곱한다 — 압축기
+   *  소음은 날개 통과 주파수와 그 배음이 RPM 에 함께 실려 통째로 오르내리므로
+   *  한쪽만 옮기면 한 엔진에서 두 소리가 난다.
+   *
+   *  (근거로 '도플러'가 적혀 있었는데 그건 틀렸다 — 엔진은 나와 같이 움직여서
+   *   내 귀에 도플러는 0 이다. 남는 것은 램 압력뿐이라 배율도 그만큼 얕다.)
+   *
+   *  눈금은 서버 CFG 를 그대로 따랐다(`game.py` `arcMin` 300 · `arcMax` 830 ·
+   *  `arcBoost` 1450, 제동은 목표 ×0.55 라 최저 165). **300 을 배율 1.0 으로
+   *  잡아 스로틀 0 순항의 소리는 예전과 한 치도 안 바뀐다.** 165 에서 0.965,
+   *  1450 에서 1.30(4.6반음)이다. 스로틀이 혼자 옮기는 폭(52→126Hz, 15반음)의
+   *  3분의 1 이라 음높이의 주인은 여전히 스로틀이다.
+   *
+   *  **속도가 스로틀과 다른 말을 하는 자리는 셋뿐이다.** 서버 속도는 스로틀이
+   *  정한 목표로 초당 700 씩 다가가는 값이라(`Plane.step`), 그 셋을 빼면
+   *  스로틀의 지연 복사본이다. 이 소리가 새로 알려 주는 것도 딱 그 셋이다.
+   *   · 스로틀을 밀어 넣는 0.76초(300→830) · AB 1.64초 — 음높이가 먼저 튀고
+   *     뒤이어 천천히 더 오른다. 엔진이 물려 올라가는 느낌이 여기서 난다.
+   *   · **제동** — `engine()` 은 브레이크를 받지도 않는다. 속도만이 안다.
+   *   · 상승한계 위 — 서버가 속도를 지운다(BACKLOG '상승한계' 항목). */
+  engine(throttle, ab, speed) {
     if (!this.enabled || !this.ctx) { this.stopEngine(); return; }
     if (!this._eng) {
       const src = this._noise(2.0);
@@ -194,10 +217,15 @@ export class Sfx {
     }
     const e = this._eng;
     const t = this.ctx.currentTime;
+    // 세기에는 속도가 안 들어간다(위 주석). 이 줄은 예전 그대로다.
     const lvl = 0.035 + throttle * 0.075 + (ab ? 0.06 : 0);
     e.g.gain.setTargetAtTime(lvl, t, 0.15);
-    e.bp.frequency.setTargetAtTime(180 + throttle * 520 + (ab ? 240 : 0), t, 0.2);
-    e.osc.frequency.setTargetAtTime(52 + throttle * 74, t, 0.2);
+    // 램 배율. 값이 안 오거나 숫자가 아니면 300 으로 봐서 배율 1.0 —
+    // 즉 **모르면 예전 소리**다. 스냅샷 한 칸이 비어도 음높이가 안 튄다.
+    const v = Number.isFinite(speed) ? Math.max(165, Math.min(1450, speed)) : 300;
+    const ram = 1 + 0.30 * (v - 300) / 1150;
+    e.bp.frequency.setTargetAtTime((180 + throttle * 520 + (ab ? 240 : 0)) * ram, t, 0.2);
+    e.osc.frequency.setTargetAtTime((52 + throttle * 74) * ram, t, 0.2);
   }
 
   stopEngine() {
