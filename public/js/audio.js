@@ -74,9 +74,29 @@ export class Sfx {
     o.stop(stop);
   }
 
-  fire() {
-    if (!this.enabled || !this.ctx || !this._throttle('fire', 55)) return;
-    this.tone(760, 0.055, 'square', 0.05, 320);
+  /** 로켓(무유도) 발사 — 짧고 날카롭게.
+   *  좌클릭이고 서버 재장전이 0.42초(`game.py` WEAPONS[ROCKET].cd)라 자주
+   *  울린다. 그래서 짧아야 한다 — 길면 연사할 때 서로 겹쳐 뭉갠다.
+   *  유도탄과 갈리는 지점은 둘이다.
+   *    · 어택 3ms — 소리가 '탁' 하고 앞에서 선다.
+   *    · 하이패스 1100Hz — 고역만 남겨 파열음으로 들린다.
+   *  유도탄은 정확히 반대로 잡았다(어택 40ms · 로우패스). */
+  rocket() {
+    if (!this.enabled || !this.ctx || !this._throttle('rocket', 70)) return;
+    const src = this._noise(0.09);
+    const hp = this.ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 1100;
+    src.connect(hp);
+    // 게인이 낮은 건 일부러다. 렌더링해서 재 보니 원래 잡은 값(0.09+0.045)은
+    // 최대진폭 0.142 로 **폭발음(0.145)과 거의 같았다.** 0.42초마다 울리는
+    // 소리가 폭발만큼 크면 금방 피곤해진다. 날카로움은 크기가 아니라
+    // 어택(3ms)과 고역(하이패스)에서 나오므로 크기만 30% 내렸다.
+    const { stop } = this._env(hp, 0.062, 0.003, 0.085);
+    src.start();
+    src.stop(stop);
+    // 떠나는 소리 — 빠르게 아래로 훑는다. 초속 900 으로 나가는 탄이다.
+    this.tone(880, 0.07, 'square', 0.032, 300);
   }
 
   hit() {
@@ -110,7 +130,38 @@ export class Sfx {
     src.stop(stop);
   }
 
-  missile() { this.tone(220, 0.4, 'sawtooth', 0.12, 900); }
+  /** 유도탄(IR) 발사 — 둔하고 길게.
+   *  예전에는 220→900Hz 로 **올라가는** 톱니 하나였다. 밝고 위로 솟는 소리라
+   *  로켓보다도 날카로웠고, 그나마 로켓과 같은 소리를 썼다(main.js 가 두
+   *  무기 모두 이걸 불렀다). 둘을 갈라 놓으면서 성격도 뒤집는다.
+   *  서버 값이 그대로 근거다 — 초속 400 으로 느리게 나가 4초를 태운다
+   *  (`game.py` WEAPONS[MISSILE] `muzzle`·`burn`). 뭉근하게 점화해 멀어진다.
+   *    · 어택 40ms(점화) · 55ms(모터) — 앞이 서지 않고 밀려 나온다.
+   *    · 로우패스 1100→260Hz — 고역을 걷어 멀어지는 것처럼 들린다. */
+  missile() {
+    if (!this.enabled || !this.ctx || !this._throttle('missile', 130)) return;
+    const t = this.ctx.currentTime;
+    // 점화 — 낮게 '쿵'. 로켓의 파열음과 달리 고역이 없다.
+    // `tone()` 을 안 쓰고 직접 짠 이유: tone 은 어택이 5ms 로 박혀 있어
+    // 이 소리의 **첫머리가 로켓만큼 날카로워진다**. 여기서만 40ms 로 늦춘다.
+    const o = this.ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(150, t);
+    o.frequency.exponentialRampToValueAtTime(82, t + 0.22);
+    const body = this._env(o, 0.075, 0.04, 0.2);
+    o.start(t);
+    o.stop(body.stop);
+    const src = this._noise(0.6);
+    const lp = this.ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.setValueAtTime(1100, t);
+    lp.frequency.exponentialRampToValueAtTime(260, t + 0.55);
+    src.connect(lp);
+    const { stop } = this._env(lp, 0.1, 0.055, 0.5);
+    src.start();
+    src.stop(stop);
+  }
+
   lock() { if (this._throttle('lock', 380)) this.tone(1500, 0.07, 'sine', 0.09); }
   warn() { if (this._throttle('warn', 600)) { this.tone(420, 0.1, 'square', 0.1); } }
   pickup() { this.tone(660, 0.09, 'sine', 0.12, 1320); }
