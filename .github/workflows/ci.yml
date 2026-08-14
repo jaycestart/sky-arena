@@ -92,6 +92,13 @@ jobs:
         # [속도, 방위각, 고도각] 으로 바꿔 보내는데 클라이언트는 여전히
         # [vx, vy, vz] 로 읽어서 미사일이 엉뚱하게 날아갔다. 봇 전투 검증은
         # 파이썬만 돌리므로 이 어긋남을 잡지 못한다. 여기서 잡는다.
+        #
+        # 2026-08-15 QA실이 넓혔다. 이 검사는 m·fl·rd **세 배열만** 보고 있었는데
+        # 스냅샷의 칸은 그 셋이 19칸이고 나머지 42칸은 p 행(10)과 me 사전(32)이다.
+        # 즉 칸의 69% 가 검사 밖이었다. 게다가 표본이 비면 `continue` 로 조용히
+        # 건너뛰어서, rd 는 시야 밖 기체가 없는 이 시나리오에서 **한 번도 검사된
+        # 적이 없었다** — 통과 로그에 rd 줄이 안 찍히는데 아무도 안 봤다.
+        # 이제 셋 다 표본을 강제로 만들고, 못 만들면 그것 자체를 실패로 본다.
         run: |
           cd server
           python - <<'PY'
@@ -102,21 +109,32 @@ jobs:
           w = game.World("proto")
           for k in range(6):
               w.add_player(f"P{k}", "falcon")
-          for _ in range(300):
+          for i in range(300):
               for p in w.planes.values():
                   p.want_fire = True
                   p.want_missile = True
+                  p.want_flare = (i % 60 == 0)
               w.step(1 / 50)
               w.events.clear()
-          snap = w.snapshot(next(iter(w.planes.values())), {})
+          me = next(iter(w.planes.values()))
+          snap = w.snapshot(me, {})
+          # 레이더는 '시야 밖' 기체만 실린다. 기본 시야로는 표본이 0행이라
+          # 여태 검사가 통째로 건너뛰어졌다 — 시야를 좁혀 강제로 채운다.
+          narrow = w.snapshot(me, {}, view_r=50.0)
+          snap["rd"] = narrow["rd"]
           cli = open("../public/js/world.js", encoding="utf-8").read()
 
           ok = True
+
+          # ── 1. 배열 세 개 (m·fl·rd) ────────────────────────────────
           for key, pat in (("m",  r"s\.m\s*\|\|\s*\[\]\)\.map\(\(\[([^\]]*)\]"),
                            ("fl", r"s\.fl\s*\|\|\s*\[\]\)\.map\(\(\[([^\]]*)\]"),
                            ("rd", r"s\.rd\s*\|\|\s*\[\]\)\.map\(\(\[([^\]]*)\]")):
               rows = snap.get(key) or []
               if not rows:
+                  print(f"::error::'{key}' 표본을 못 만들었다 — 검사가 조용히 "
+                        f"건너뛰지 않도록 시나리오를 고쳐라")
+                  ok = False
                   continue
               m = re.search(pat, cli)
               if not m:
@@ -130,7 +148,53 @@ jobs:
                         f"클라는 {got}칸으로 읽는다 - 한쪽만 고쳤다")
                   ok = False
               else:
-                  print(f"  {key}: {want}칸 일치")
+                  print(f"  {key}: {want}칸 일치 ({len(rows)}행)")
+
+          # ── 2. p 행 ────────────────────────────────────────────────
+          # p 는 델타 압축이라 폭이 두 가지다. hp·flags 가 바뀐 틱에만 뒤에
+          # 두 칸이 붙는다(8칸 또는 10칸). 클라는 앞 8칸을 구조분해로 뜯고
+          # 나머지는 row[8]·row[9] 로 집는다. 양쪽을 따로 맞춰 본다.
+          m = re.search(r"for \(const row of s\.p\)[^;]*?const \[([^\]]*)\]", cli, re.S)
+          if not m:
+              print("::error::world.js 가 p 행을 뜯는 곳을 찾지 못했다")
+              ok = False
+          else:
+              base = len([x for x in m.group(1).split(",") if x.strip()])
+              idx = sorted({int(g) for g in re.findall(r"row\[(\d+)\]", cli)})
+              widths = sorted({len(r) for r in snap["p"]})
+              want = base + len(idx)
+              if max(widths) != want or idx != list(range(base, want)):
+                  print(f"::error::'p' 서버는 {widths}칸을 보내는데 클라는 "
+                        f"기본 {base}칸 + 확장 {idx} 로 읽는다 - 한쪽만 고쳤다")
+                  ok = False
+              else:
+                  print(f"  p : 기본 {base}칸 + 확장 {idx} = {want}칸 일치 "
+                        f"(서버 {widths})")
+
+          # ── 3. me 사전 ─────────────────────────────────────────────
+          # 여기가 스냅샷 칸의 절반이 넘는다. 배열과 달리 이름표가 붙어 있어
+          # '칸 수'로는 어긋남이 안 잡힌다 — 서버가 칸 하나를 빼도 클라는
+          # undefined 를 읽고 조용히 NaN 을 화면에 찍는다(계기판이 실제로
+          # 그랬다). 그래서 **키 집합을 통째로** 못 박는다. 여기를 고쳐야
+          # 한다면 그건 곧 클라이언트를 같이 봐야 한다는 뜻이다.
+          EXPECT = {
+              "x", "y", "z", "q", "hpb", "vx", "vy", "vz", "sp", "mach", "g",
+              "hp", "al", "rt", "iv", "thr", "ab", "fla", "lk", "lkt", "lw",
+              "rwr", "st", "sc", "kl", "de", "ack", "w", "kb", "agl", "ht", "hu",
+          }
+          got = set(snap["me"])
+          if got != EXPECT:
+              added, gone = sorted(got - EXPECT), sorted(EXPECT - got)
+              if added:
+                  print(f"::error::me 사전에 칸이 늘었다: {added} — 클라이언트가 "
+                        f"이 칸을 읽는지 확인하고 이 목록도 같이 고쳐라")
+              if gone:
+                  print(f"::error::me 사전에서 칸이 사라졌다: {gone} — 이 칸을 읽던 "
+                        f"곳이 undefined 를 읽는다(hud.js·scene.js·main.js·world.js)")
+              ok = False
+          else:
+              print(f"  me: {len(got)}칸 일치")
+
           sys.exit(0 if ok else 1)
           PY
 
