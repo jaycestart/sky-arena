@@ -673,10 +673,15 @@ export class Hud {
       ctx.fillStyle = row[1] === '0' ? RED : GREEN;
       ctx.fillText(row[0] + ' ' + row[1], rx, y0 + i * 18);
     });
-    // 무장 선택 + 미사일 발사 가능 여부
+    // 무기를 가르는 것은 **누른 버튼**뿐이다. 서버 _launch 는 want_fire →
+    // ROCKET · want_missile → MISSILE 로 갈라 쏘고 p.weapon(= s.w)을 아예
+    // 보지 않는다(game.py:509·511). 예전에는 여기서 s.w 로 '[ ROCKET ]' /
+    // '[ AIM-9 ]' 를 찍어 선택이 있는 것처럼 보였는데, 1·2 키를 눌러도
+    // 이 글자만 바뀌고 발사는 하나도 안 달라졌다 — 화면이 게임에 없는
+    // 규칙을 지어내고 있었다. 실제 규칙을 그대로 적는다.
     ctx.fillStyle = GREEN;
     ctx.font = '700 13px ui-monospace, monospace';
-    ctx.fillText(s.w === 0 ? '[ ROCKET ]' : '[ AIM-9 ]', rx, y0 - 22);
+    ctx.fillText('좌클릭 RKT · 우클릭 MSL', rx, y0 - 22);
     ctx.fillStyle = s.lk ? '#3dff8a' : AMBER;
     ctx.font = '800 12px ui-monospace, monospace';
     ctx.fillText(s.lk ? '● 미사일 발사 가능' : '락온 없음 (자동추적)', rx, y0 - 40);

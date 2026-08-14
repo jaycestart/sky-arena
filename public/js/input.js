@@ -35,8 +35,14 @@ export class Input {
                    flare: false, ab: false, level: false };
     this.isTouch = matchMedia('(hover:none) and (pointer:coarse)').matches;
     this.throttle = 0.8;
+    // 무장 '선택' 은 이 게임에 없다. 무엇이 나갈지는 **누른 버튼**만 정한다 —
+    // 서버 _launch 는 want_fire→ROCKET · want_missile→MISSILE 로 갈라 쏘고
+    // p.weapon 을 아예 보지 않는다(game.py:509·511). 그런데도 이 값은
+    // main.js → 서버 → 스냅샷 s.w 로 한 바퀴 돈다. 그 경로를 지우려면
+    // main.js·app.py·game.py 를 함께 고쳐야 해 이 실 파일 밖이므로,
+    // 여기서는 **상수 0** 으로 두고 서버가 받는 형식만 그대로 유지한다.
+    // 1·2 키는 걷어냈다 — 글자만 바꾸고 발사는 하나도 안 달라졌다.
     this.weapon = 0;
-    this.onWeapon = null;
     this.onView = null;
     this.onAny = null;
     this.cmd = { pitch: 0, roll: 0, yaw: 0, throttle: 0.8, ab: false, brake: false,
@@ -53,8 +59,6 @@ export class Input {
       if (e.target.tagName === 'INPUT') return;
       this.keys.add(e.code);
       this._touched();
-      if (e.code === 'Digit1') { this.weapon = 0; this.onWeapon?.(0); }
-      if (e.code === 'Digit2') { this.weapon = 1; this.onWeapon?.(1); }
       if (e.code === 'KeyV') this.onView?.();
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
         e.preventDefault();
@@ -351,7 +355,10 @@ export class Input {
 
     // 스로틀 — 프레임률과 무관하도록 초당 비율로 바꾼다(예전엔 프레임당 고정값)
     if (k.has('ShiftLeft') || k.has('ShiftRight')) this.throttle = Math.min(1, this.throttle + 0.9 * dt);
-    if (k.has('ControlLeft') || k.has('KeyZ') || k.has('KeyS')) {
+    // 도움말은 그냥 'Ctrl' 이라고 적어 두는데 여기는 ControlLeft 만 봤다 —
+    // 오른쪽 Ctrl 로만 조작하면 스로틀이 안 내려갔다. Shift 는 진작 양쪽을
+    // 보고 있었으므로 그쪽에 맞춘다.
+    if (k.has('ControlLeft') || k.has('ControlRight') || k.has('KeyZ') || k.has('KeyS')) {
       this.throttle = Math.max(0, this.throttle - 0.9 * dt);
     }
 
