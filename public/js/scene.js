@@ -473,7 +473,13 @@ export class Scene {
     this._frames = 0;
     this._fpsT = performance.now();
     // 기본은 3인칭. 내 기체가 보여야 기동이 눈에 들어온다.
-    this.view = localStorage.getItem('skyarena.view') || 'chase';
+    // **항상 3인칭으로 시작한다.** 예전에는 저장해 두었다가 복구했는데,
+    // V 를 한 번 잘못 누르면 그 뒤로 켤 때마다 조종석 안에서 시작했다.
+    // 조종석 메시는 아직 상자 몇 개짜리 자리표시라, 사용자는 그걸 보고
+    // '게임이 옛날 버전으로 돌아갔다'고 판단했다(실제로 그렇게 신고했다).
+    // 사용자가 요구한 것은 3인칭이다. 한 판 안에서 V 로 바꾸는 것은 그대로
+    // 되고, 다음에 켤 때만 3인칭으로 돌아온다.
+    this.view = 'chase';
     this.trails = new Map();
     this.progFail = new Set();
     this.ok = false;
@@ -829,7 +835,7 @@ export class Scene {
 
   toggleView() {
     this.view = this.view === 'cockpit' ? 'chase' : 'cockpit';
-    try { localStorage.setItem('skyarena.view', this.view); } catch { /* 사생활 모드 */ }
+    // 저장하지 않는다 — 위 생성자의 주석 참고.
   }
   togglePerf() { this.showPerf = !this.showPerf; }
 
