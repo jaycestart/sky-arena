@@ -1126,6 +1126,16 @@ class World:
             # 않아 영원히 99 였다 — 넷 다 클라이언트에서 읽는 곳이 0건이라 매 틱
             # 그냥 버려지고 있었다. 되살릴 거라면 값을 실제로 움직이는 코드부터
             # 만들어라. (st 는 아직 scene.js · main.js 가 읽어서 남겨 뒀다.)
+            #
+            # de(사망 수)는 2026-08-15 에 같은 이유로 뺐다 — 클라이언트 전체에서
+            # `me.de` 를 읽는 곳이 0건이었다. 화면의 K/D 는 리더보드 행이 사망
+            # 수를 따로 싣고(leaderboard() 여섯 번째 칸) main.js:466 이 그걸
+            # 읽으므로 그대로다. `v.deaths` 자체는 남는다 — 리더보드와 재접속
+            # 복원(app.py:202·213)이 쓴다.
+            #
+            # w(선택 무기)도 읽는 곳이 0건이지만 **아직 빼지 마라.** BACKLOG
+            # 8순위(1·2 키)를 (b) 로 정하면 되살아나는 칸이라, 그 결정 전에
+            # 빼면 되돌리는 일이 된다.
             snap["me"] = {
                 # 자릿수를 줄인다. 파이썬 float 을 그대로 실으면 좌표 하나가
                 # 1234.5678901234567 처럼 18자가 되는데, 화면에서 1cm 차이는
@@ -1145,7 +1155,7 @@ class World:
                 "lk": v.lock_id if v.lock_t >= WEAPONS[MISSILE]["lockTime"] else 0,
                 "lkt": round(v.lock_t, 2), "lw": v.locked_by, "rwr": v.rwr,
                 "st": 1 if v.stalling else 0, "sc": v.score, "kl": v.kills,
-                "de": v.deaths, "ack": v.seq, "w": v.weapon, "kb": v.killer_name,
+                "ack": v.seq, "w": v.weapon, "kb": v.killer_name,
                 "agl": round(v.pos[1] - ground_h(v.pos[0], v.pos[2]), 1),
                 "ht": v.hit_marks, "hu": v.hurt_marks,
             }

@@ -180,8 +180,11 @@ jobs:
           EXPECT = {
               "x", "y", "z", "q", "hpb", "vx", "vy", "vz", "sp", "mach", "g",
               "hp", "al", "rt", "iv", "thr", "ab", "fla", "lk", "lkt", "lw",
-              "rwr", "st", "sc", "kl", "de", "ack", "w", "kb", "agl", "ht", "hu",
+              "rwr", "st", "sc", "kl", "ack", "w", "kb", "agl", "ht", "hu",
           }
+          # de 는 2026-08-15 에 뺐다(프로그래밍실). 클라이언트 전체에서 me.de 를
+          # 읽는 곳이 0건이었고, 화면 K/D 는 리더보드 행이 사망 수를 따로 실어
+          # (leaderboard() 여섯 번째 칸 → main.js:466) 그대로다.
           got = set(snap["me"])
           if got != EXPECT:
               added, gone = sorted(got - EXPECT), sorted(EXPECT - got)
