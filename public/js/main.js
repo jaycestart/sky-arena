@@ -103,6 +103,7 @@ input.onAny = () => sfx.resume();
 const silence = () => {
   sfx.stopEngine();
   sfx.stopWind();
+  sfx.stopGround();
   try { sfx.ctx?.suspend?.(); } catch { /* 아직 오디오 미생성 */ }
 };
 addEventListener('visibilitychange', () => {
@@ -139,7 +140,7 @@ if (!scene.ok) {
 // 꺼내 준 예전 코드가 며칠씩 살아남는다 — 사용자에게는 '그래픽이 갑자기
 // 옛날로 돌아갔다'로 보인다(구형 렌더러 시절 번들이라 실제로 그렇다).
 // 사람이 눈치채고 조치하기를 기대하지 말고 스스로 복구한다.
-export const BUILD = '2026-08-14l';
+export const BUILD = '2026-08-14m';
 
 // 화면 오른쪽 아래에 빌드 날짜를 띄우려고 월드에 넘긴다. 반드시 위
 // 선언 **뒤**여야 한다 — const 는 선언 전에 쓰면 ReferenceError 로
@@ -370,6 +371,7 @@ $('btn-home').addEventListener('click', () => {
   document.exitPointerLock?.();
   sfx.stopEngine();
   sfx.stopWind();
+  sfx.stopGround();
   net.joined = false;
   if (net.ws) net.ws.close();
   world.me = null; world.srv = null;
@@ -569,9 +571,13 @@ function loop(now) {
       sfx.engine(cmd.throttle, cmd.ab);
       // 바람은 예측값이 아니라 서버가 보낸 실제 속도·고도로 운다.
       sfx.wind(world.srv.sp, world.srv.agl);
+      // 지면 경고도 같은 이유로 서버 `agl` 만 본다. 예측값을 쓰면 되감기
+      // 때마다 높이가 튀어 접근 속도가 헛값이 된다.
+      sfx.ground(world.srv.agl);
     } else {
       sfx.stopEngine();             // 격추되면 엔진음도 멎는다
       sfx.stopWind();
+      sfx.stopGround();
     }
 
     sendAcc += dt;
@@ -593,6 +599,7 @@ function loop(now) {
     // 비행 중이 아닐 때는 엔진음을 반드시 끈다(안 그러면 계속 울린다)
     sfx.stopEngine();
     sfx.stopWind();
+    sfx.stopGround();
   }
 
   scene.frame(dt);

@@ -259,6 +259,95 @@ export class Sfx {
     } catch { /* 이미 정지 */ }
   }
 
+  /** 지면 접근 경고 — 땅이 다가오는 **속도**로 삐 소리 간격이 좁아진다.
+   *
+   *  미사일 경고(`warn()`)는 이미 운다(`world.js` 가 `rwr` 이 늘면 부른다).
+   *  비어 있던 것은 이쪽이다. 실속 경고는 만들지 않는다 — 서버가
+   *  `stalling` 을 영영 False 로 둔다(BACKLOG 4순위).
+   *
+   *  **`vy` 가 아니라 `agl` 의 변화율로 잰다.** 가라앉는 속도만 보면 수평
+   *  비행 중에 앞의 산이 솟아오르는 것을 놓친다 — 그때 `vy` 는 0 인데 `agl`
+   *  은 줄어든다. 실제 GPWS 가 지형 접근을 따로 두는 이유와 같다.
+   *  대신 낮게 스치는 비행(2순위가 권하는 저공)은 접근 속도가 0 이라
+   *  울리지 않는다. **높이만으로는 절대 울리지 않는다.**
+   *
+   *  눈금의 근거:
+   *   · 바닥은 `agl` 0 이 아니라 8 이다 — 서버가 지면+8m 에서 격추로 친다
+   *     (`game.py:568`). 남은 높이는 `agl - 8`.
+   *   · 충돌까지 6초 안이면 울리기 시작한다. 최대 속도 830m/s(AB 1450)로
+   *     수직 강하하면 5000m 상공에서 켜진다 — 그게 맞다. 정말 부딪힌다.
+   *   · 접근 속도 3m/s 아래는 무시한다. 착륙하듯 살살 내려가는 것까지
+   *     잡으면 저공 비행 내내 운다.
+   *  간격 620ms(막 켜짐) → 120ms(충돌 직전). 음높이도 같이 오른다.
+   *  두 음을 번갈아 내 미사일 경고(420Hz 한 음)와 귀로 갈린다. */
+  ground(agl) {
+    if (!this.enabled || !this.ctx) { this.stopGround(); return; }
+    const t = this.ctx.currentTime;
+    const h = Math.max(0, (agl || 0) - 8);
+    if (!this._gpws) {
+      // 엔진음·바람과 같은 방식이다. 오실레이터는 **한 번만** 만들고
+      // 그 뒤로는 게인 봉투와 주파수만 옮긴다.
+      const osc = this.ctx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.value = 700;
+      const g = this.ctx.createGain();
+      g.gain.value = 0.0001;
+      osc.connect(g).connect(this.master);
+      osc.start();
+      this._gpws = { osc, g, t0: 0, h, rate: 0, next: 0, alt: false };
+    }
+    const p = this._gpws;
+    // 접근 속도. 스냅샷은 20Hz 인데 이 함수는 매 프레임(60Hz) 불리므로
+    // 세 번에 두 번은 같은 값이 온다 — 20ms 마다만 재고 지수평활한다.
+    if (p.t0 === 0) { p.t0 = t; p.h = h; }
+    const dt = t - p.t0;
+    if (dt >= 0.02) {
+      // 지형이 아무리 가팔라도 초속 2km 로 다가올 수는 없다. 스냅샷이
+      // 한 번 건너뛰면 나오는 헛값을 여기서 막는다.
+      const inst = Math.max(-2000, Math.min(2000, (p.h - h) / dt));
+      p.rate += (inst - p.rate) * (1 - Math.exp(-Math.min(dt, 0.5) / 0.30));
+      p.t0 = t; p.h = h;
+    }
+    const ttc = p.rate > 3 ? h / p.rate : Infinity;
+    const u = Math.max(0, Math.min(1, 1 - ttc / 6));
+    // 조용할 때도 **재장전을 지우지 마라.** 스냅샷 20Hz 를 60Hz 로 재는 탓에
+    // 접근 속도가 ±5% 흔들리고(측정: 188.7 / 200.4 / 210.9), 경보가 막 켜지는
+    // 순간 `ttc` 가 문턱 6초를 여덟 번 오르내린다. 여기서 `p.next` 를 0 으로
+    // 되돌리면 그때마다 재장전이 풀려 **다음 프레임에 바로** 삐가 나간다 —
+    // 실측으로 67~100ms 간격이었다. 가장 안 급한 순간에 제일 빨리 울리고
+    // 정작 가까워지면 633ms 로 느려지는, 의도와 정반대의 소리였다.
+    // 그냥 두면 마지막 삐로부터의 간격이 그대로 살아 있어 떨림이 먹힌다.
+    // 한동안 안 울리다 다시 켜지는 경우는 `p.next` 가 이미 과거라 즉시 운다.
+    if (u <= 0) return;
+    if (t < p.next) return;
+    p.next = t + 0.62 - 0.50 * u;
+    p.alt = !p.alt;
+    const f = (700 + 260 * u) * (p.alt ? 1 : 0.75);
+    // 눈금은 미사일 경고(`warn()`)에 맞췄다 — 렌더링해서 재 보니 그쪽
+    // 최대진폭이 0.093 인데, 이 소리는 **충돌 3초 전에 딱 그 크기**가 된다.
+    // 막 켜졌을 때는 절반이고, 부딪히기 직전에만 그보다 커진다.
+    const lvl = 0.045 + 0.095 * u;
+    p.osc.frequency.setValueAtTime(f, t);
+    const g = p.g.gain;
+    g.cancelScheduledValues(t);
+    g.setValueAtTime(0.0001, t);
+    g.exponentialRampToValueAtTime(lvl, t + 0.006);
+    // 96ms. 가장 급할 때 간격이 120ms 라 삐 소리가 거의 맞붙는다 — 그때는
+    // 하나씩 세지 않고 이어진 경보로 들려야 한다.
+    g.exponentialRampToValueAtTime(0.0001, t + 0.096);
+  }
+
+  stopGround() {
+    if (!this._gpws) return;
+    const { osc, g } = this._gpws;
+    this._gpws = null;
+    try {
+      g.gain.cancelScheduledValues(this.ctx.currentTime);
+      g.gain.setValueAtTime(0.0001, this.ctx.currentTime);
+      osc.stop(this.ctx.currentTime + 0.05);
+    } catch { /* 이미 정지 */ }
+  }
+
   /** 부스트 중에는 노이즈 루프를 계속 흘린다 */
   boost(on) {
     if (!this.enabled || !this.ctx) return;
