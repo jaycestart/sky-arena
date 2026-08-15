@@ -61,6 +61,14 @@ CFG = {
     "arcAccel": 700.0,          # 속도 변화율
     "flares": 20,
     "flareCd": 0.45,
+    # ── 어시스트 ───────────────────────────────────────────────────
+    # 막타를 못 넣었어도 직전에 깎아 놓은 몫을 인정한다. 세 값은 2D 판
+    # (legacy-2d/game-2d.py)에서 굴려 본 그대로다. 점수 40 은 격추 100 과
+    # 짝이고, DESIGN.md 1단계의 어시스트 **골드 30** 과는 다른 화폐다 —
+    # 골드는 hud.js 가 이 개수(스냅샷 'ast')로 따로 계산한다.
+    "assistWindow": 6.0,        # 마지막 명중이 이 시간 안이어야 인정
+    "assistMinDmg": 15.0,       # 누적 이만큼은 깎아야 인정(체력 100 기준)
+    "assistScore": 40,
     "viewR": 14000.0,           # 스냅샷 시야 반경
     # 한 번에 내려보낼 미사일 수의 상한. 24대가 한꺼번에 연사하면 시야 안에만
     # 450발이 잡혀 스냅샷이 17KB까지 부풀었다. 가까운 것부터 이만큼만 보낸다.
@@ -264,7 +272,12 @@ class Plane:
         self.score = 0
         self.kills = 0
         self.deaths = 0
+        self.assists = 0
         self.streak = 0
+        # 판 전체의 최고 연속이다. streak 은 죽을 때마다 0 이 되지만(spawn)
+        # 이 값은 접속이 끝날 때까지 남아야 결과 화면의 '최고 연속'이 된다.
+        # 그래서 **spawn() 에서 건드리지 않는다.** assists 도 같은 이유다.
+        self.best_streak = 0
 
         # 조종 입력
         self.c_pitch = 0.0
@@ -874,10 +887,33 @@ class World:
         if killer and killer.id != victim.id:
             killer.kills += 1
             killer.streak += 1
+            killer.best_streak = max(killer.best_streak, killer.streak)
             killer.score += 100 + 20 * min(killer.streak, 5)
             self.events.append({"e": "kill", "k": killer.name, "v": victim.name,
                                 "kc": killer.color, "vc": victim.color,
                                 "s": killer.streak})
+            # 어시스트 — 막타를 놓쳤어도 직전에 깎아 놓은 몫을 인정한다.
+            # damage_from 은 여태 쌓기만 하고 읽는 곳이 없었다(2D 판에서
+            # 옮겨 올 때 빠졌다). 격추자와 자기 자신은 뺀다.
+            for aid, (t, amount) in victim.damage_from.items():
+                if aid in (killer.id, victim.id):
+                    continue
+                if self.time - t > CFG["assistWindow"]:
+                    continue
+                if amount < CFG["assistMinDmg"]:
+                    continue
+                helper = self.planes.get(aid)
+                if helper:
+                    helper.assists += 1
+                    helper.score += CFG["assistScore"]
+                    # 칸 이름은 kill 이벤트와 같게 둔다(k=공, v=피). main.js 의
+                    # onEvent 는 아직 'assist' 가지가 없어 그냥 무시한다 —
+                    # 킬피드에 줄을 띄우는 것은 UI실 몫이다. 2D 판이 싣던
+                    # 's' 는 뺐다. 어시스트에 연속 수는 뜻이 없고, 읽는
+                    # 곳도 없는 칸이 된다.
+                    self.events.append({"e": "assist", "k": helper.name,
+                                        "v": victim.name, "kc": helper.color,
+                                        "vc": victim.color})
         else:
             victim.score = max(0, victim.score - 20)
             self.events.append({"e": "kill", "k": "", "v": victim.name, "kc": "",
@@ -1172,11 +1208,18 @@ class World:
             # 그냥 버려지고 있었다. 되살릴 거라면 값을 실제로 움직이는 코드부터
             # 만들어라. (st 는 아직 scene.js · main.js 가 읽어서 남겨 뒀다.)
             #
-            # de(사망 수)는 2026-08-15 에 같은 이유로 뺐다 — 클라이언트 전체에서
-            # `me.de` 를 읽는 곳이 0건이었다. 화면의 K/D 는 리더보드 행이 사망
-            # 수를 따로 싣고(leaderboard() 여섯 번째 칸) main.js:466 이 그걸
-            # 읽으므로 그대로다. `v.deaths` 자체는 남는다 — 리더보드와 재접속
-            # 복원(app.py:202·213)이 쓴다.
+            # de(사망 수)는 2026-08-15 오전에 '읽는 곳이 0건'이라 뺐다가 같은
+            # 날 되살렸다. 이제 읽는 곳이 생겼다 — hud.js 의 결과 화면이다.
+            # 그전까지 hud 는 '살아있음'이 꺼지는 전이를 직접 세고 리더보드
+            # 행과 큰 쪽을 골랐는데(hud.js:142), 탭이 가려지면 전이를 놓치고
+            # 리더보드는 top=8 이라 24인 방에서 9등 아래면 내 행이 아예 없다.
+            # 둘 다 **덜 세는** 쪽으로 틀려서 사망 수가 실제보다 작게 떴다.
+            # 서버 값을 그대로 싣는 것이 맞다.
+            #
+            # ast(어시스트) · bst(최고 연속)도 같은 결과 화면이 읽는다.
+            # 연속 수는 킬 이벤트의 's' 로도 나가지만 그건 net.js → main.js
+            # 경로라 hud.js 가 볼 수 없다(hud.js:14 주석). 결과 화면이 쓰는
+            # 값은 스냅샷으로 준다.
             #
             # w(선택 무기)도 읽는 곳이 0건이지만 **아직 빼지 마라.** BACKLOG
             # 8순위(1·2 키)를 (b) 로 정하면 되살아나는 칸이라, 그 결정 전에
@@ -1200,6 +1243,7 @@ class World:
                 "lk": v.lock_id if v.lock_t >= WEAPONS[MISSILE]["lockTime"] else 0,
                 "lkt": round(v.lock_t, 2), "lw": v.locked_by, "rwr": v.rwr,
                 "st": 1 if v.stalling else 0, "sc": v.score, "kl": v.kills,
+                "de": v.deaths, "ast": v.assists, "bst": v.best_streak,
                 "ack": v.seq, "w": v.weapon, "kb": v.killer_name,
                 "agl": round(v.pos[1] - ground_h(v.pos[0], v.pos[2]), 1),
                 "ht": v.hit_marks, "hu": v.hurt_marks,

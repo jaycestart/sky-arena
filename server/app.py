@@ -199,7 +199,8 @@ class Room:
         p = c.plane
         if c.token:   # 잠깐 끊겨도 전적이 날아가지 않도록 보관
             self.saved[c.token] = {"score": p.score, "kills": p.kills,
-                                   "deaths": p.deaths,
+                                   "deaths": p.deaths, "assists": p.assists,
+                                   "best_streak": p.best_streak,
                                    "exp": time.time() + RESUME_TTL}
         self.world.remove_player(pid)
         print(f"[-] '{self.name}' 퇴장 id={pid} (접속 {self.humans}명)")
@@ -211,6 +212,10 @@ class Room:
         plane.score = rec["score"]
         plane.kills = rec["kills"]
         plane.deaths = rec["deaths"]
+        # 어시스트·최고 연속도 같이 되돌린다. 안 되돌리면 잠깐 끊겼다 온
+        # 사람의 결과 화면이 실제보다 적게 뜬다(격추·사망만 살아남는다).
+        plane.assists = rec.get("assists", 0)
+        plane.best_streak = rec.get("best_streak", 0)
         return True
 
     # ── 클라이언트 세션 ──────────────────────────────────────────────
