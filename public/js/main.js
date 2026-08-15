@@ -140,7 +140,7 @@ if (!scene.ok) {
 // 꺼내 준 예전 코드가 며칠씩 살아남는다 — 사용자에게는 '그래픽이 갑자기
 // 옛날로 돌아갔다'로 보인다(구형 렌더러 시절 번들이라 실제로 그렇다).
 // 사람이 눈치채고 조치하기를 기대하지 말고 스스로 복구한다.
-export const BUILD = '2026-08-15d';
+export const BUILD = '2026-08-15e';
 
 // 화면 오른쪽 아래에 빌드 날짜를 띄우려고 월드에 넘긴다. 반드시 위
 // 선언 **뒤**여야 한다 — const 는 선언 전에 쓰면 ReferenceError 로
@@ -154,15 +154,57 @@ async function healIfStale() {
     const g = await (await fetch('/game.json?v=' + Date.now(), { cache: 'no-store' })).json();
     if (!g.build || g.build === BUILD) return false;
     console.warn('낡은 번들 감지: 화면 ' + BUILD + ' / 서버 ' + g.build + ' — 복구한다');
-    // 워커와 캐시를 통째로 걷어내고 한 번만 다시 뜬다. 이 경로를 타면
-    // 다음 로드부터는 네트워크 전용 워커(v5)가 잡혀 다시는 안 굳는다.
-    if (sessionStorage.getItem('skyarena.healed') === g.build) return false;  // 무한루프 방지
-    sessionStorage.setItem('skyarena.healed', g.build);
+
+    // 한 번 시도했다고 **영영 포기하면 안 된다.** 예전에는 여기서
+    // sessionStorage 에 서버 빌드를 적어 두고, 같은 값이면 무조건 물러났다.
+    // 무한 새로고침은 막았지만 대신 이런 구멍이 생겼다 — 복구가 한 번
+    // 실패하면(아래 캐시 덮어쓰기가 안 먹었거나 서버가 자는 중이었거나)
+    // 그 창은 **닫을 때까지** 낡은 판으로 산다. 설치형 앱 창은 며칠씩
+    // 안 닫히고 크롬이 세션까지 복원해 주므로, 사장님에게는 "바탕화면
+    // 것만 낡았고 웹으로 열면 멀쩡하다"로 보인다. 브라우저 탭은 자주
+    // 닫혀서 세션이 새로 시작되니 저절로 나았던 것이다.
+    // 그래서 횟수로 막는다 — 세 번까지는 다시 시도한다.
+    const key = 'skyarena.heal.' + g.build;
+    const tries = +(sessionStorage.getItem(key) || 0);
+    if (tries >= 3) { showStaleBanner(BUILD, g.build); return false; }
+    sessionStorage.setItem(key, tries + 1);
+
     for (const r of await navigator.serviceWorker?.getRegistrations?.() || []) await r.unregister();
     for (const k of await caches?.keys?.() || []) await caches.delete(k);
+
+    // 워커 캐시를 비워도 **브라우저 자체의 HTTP 캐시는 그대로다.**
+    // location.reload() 는 그 캐시를 건너뛰지 않는다(하위 자원은 특히).
+    // 그래서 이 판이 실제로 읽어들인 파일을 그대로 훑어 cache:'reload' 로
+    // 다시 받는다 — 그러면 캐시 항목이 새 것으로 덮여, 이어지는 새로고침이
+    // 낡은 사본을 다시 꺼낼 수 없다. 목록을 손으로 적지 않고 실측한
+    // 자원에서 뽑는 이유는, 손으로 적으면 파일이 늘 때마다 빠뜨려서다.
+    const urls = performance.getEntriesByType('resource')
+      .filter((r) => r.initiatorType === 'script' || r.initiatorType === 'link')
+      .map((r) => r.name)
+      .filter((u) => u.startsWith(location.origin));
+    await Promise.all([location.href, ...urls].map(
+      (u) => fetch(u, { cache: 'reload' }).catch(() => {})));
+
     location.reload();
     return true;
   } catch { return false; }
+}
+
+/** 세 번 시도하고도 못 고쳤으면 **화면에 띄운다.**
+ *
+ * 콘솔에만 적으면 아무도 안 본다. 낡은 판인 줄 모르고 "왜 안 바뀌냐"를
+ * 말로 주고받는 데 여러 날을 썼다. 스스로 못 고치는 상황이면 적어도
+ * 무엇이 어긋났는지는 눈에 보여야 한다. */
+function showStaleBanner(mine, theirs) {
+  if (document.getElementById('stale-warn')) return;
+  const d = document.createElement('div');
+  d.id = 'stale-warn';
+  d.textContent = `낡은 화면입니다 — 이 창 ${mine} / 서버 ${theirs}. 창을 닫았다 다시 여세요.`;
+  d.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;'
+    + 'background:#b91c1c;color:#fff;font:600 13px/1.6 system-ui,sans-serif;'
+    + 'text-align:center;padding:6px 10px;cursor:pointer';
+  d.onclick = () => d.remove();
+  document.body.appendChild(d);
 }
 
 // ── PWA ────────────────────────────────────────────────────────────
@@ -503,6 +545,53 @@ function onEvent(ev) {
   }
 }
 
+// ── 근접 통과음 ────────────────────────────────────────────────────
+// 남의 탄이 내 옆을 스쳐 지나간 **그 프레임에** 소리를 낸다.
+// 기하는 여기서 재고 소리는 audio.js 가 만든다 — 위 launch 거리와 같은 분업.
+//
+// 최근접을 눈으로 세지 않고 **식으로 푼다.** 매 프레임 거리를 재서 최솟값을
+// 찾는 방식은 표본 간격에 걸린다 — 로켓 초속 900 에 60fps 면 한 프레임에
+// 15m 를 가므로, 실제로 5m 로 스친 탄을 20m 로 잘못 재거나 통째로 놓친다.
+// 대신 상대 위치 `rel` 과 상대 속도 `rv` 로 직선 최근접을 바로 구한다.
+//   dot = rel·rv  … 음수면 다가오는 중, 양수면 이미 지나갔다
+//   최근접거리 = √(|rel|² − dot²/|rv|²)   (rel 중 rv 에 수직인 성분)
+// 부호가 음→양으로 **넘어가는 순간**이 스쳐 간 순간이고, 그때의 수직 성분이
+// 프레임률과 무관한 진짜 최근접 거리다.
+const passDot = new Map();     // 탄 id → 직전 프레임의 dot 부호
+const PASS_R = 140;            // 이보다 멀리 지나가면 안 운다(m)
+const PASS_TRACK = 900;        // 이 밖은 추적조차 안 한다(m) — 매 프레임 도는 루프다
+
+function passByScan() {
+  const me = world.me;
+  if (!me || !world.srv?.al) { passDot.clear(); return; }
+  const mv = me.vel || [0, 0, 0];
+  const right = quat.right(me.q);
+  const live = new Set();
+  for (const m of world.missiles) {
+    // 내가 쏜 탄은 뺀다. 발사 순간 rel 이 0 이라 최근접 0m 로 잡혀
+    // **내 발사마다** 스침음이 울린다.
+    if (m.owner === world.myId) continue;
+    const rx = m.pos[0] - me.pos[0], ry = m.pos[1] - me.pos[1], rz = m.pos[2] - me.pos[2];
+    const rr = rx * rx + ry * ry + rz * rz;
+    if (rr > PASS_TRACK * PASS_TRACK) continue;
+    const vx = m.vel[0] - mv[0], vy = m.vel[1] - mv[1], vz = m.vel[2] - mv[2];
+    const rv2 = vx * vx + vy * vy + vz * vz;
+    if (rv2 < 1) continue;                       // 나란히 나는 탄 — 스침이 아니다
+    live.add(m.id);
+    const dot = rx * vx + ry * vy + rz * vz;
+    const was = passDot.get(m.id);
+    passDot.set(m.id, dot);
+    if (!(was < 0 && dot >= 0)) continue;        // 아직 안 지났거나, 처음부터 멀어지는 중
+    const dmin = Math.sqrt(Math.max(0, rr - dot * dot / rv2));
+    if (dmin > PASS_R) continue;
+    const rlen = Math.sqrt(rr) || 1;
+    const pan = (rx * right[0] + ry * right[1] + rz * right[2]) / rlen;
+    sfx.passBy(dmin, pan, Math.sqrt(rv2));
+  }
+  // 맞았거나 수명이 다한 탄을 흘려 보낸다(안 지우면 Map 이 계속 큰다)
+  for (const id of passDot.keys()) if (!live.has(id)) passDot.delete(id);
+}
+
 function pushFeed(html) {
   const el = document.createElement('div');
   el.className = 'kill';
@@ -593,6 +682,10 @@ function loop(now) {
       sfx.stopWind();
       sfx.stopGround();
     }
+    // 스침음은 살아 있을 때만 뜻이 있다(격추 중에는 함수가 스스로 비운다).
+    // 예측값이 아니라 스냅샷 위치를 쓰는 다른 소리들과 달리, 이건 탄과 내
+    // 기체가 **같은 시계** 위에 있어야 최근접이 맞으므로 예측된 world.me 로 잰다.
+    passByScan();
 
     sendAcc += dt;
     if (sendAcc >= 1 / SEND_HZ) {
