@@ -12,6 +12,46 @@
 <meta name="apple-mobile-web-app-title" content="SKY ARENA">
 <link rel="icon" href="/icons/icon-192.png">
 <link rel="stylesheet" href="/css/style.css">
+<style>
+/* ── 출격 결과 (DESIGN.md 1단계) ────────────────────────────────────
+   판이 끝나면 격추·사망·최고 연속과 그것으로 번 골드를 띄운다.
+   이 규칙들이 style.css 가 아니라 여기 있는 이유는 하나다 — UI실이 고칠 수
+   있는 파일이 hud.js · input.js · index.html 셋뿐이라 css/style.css 를 못
+   건드린다. 소유권이 풀리면 style.css 로 옮길 것(BACKLOG 에 적어 뒀다).
+   z-index 58 은 홈(40) · 설정(50) · 도움말(55) 위, gl-error(60) 아래다. */
+#result{position:fixed;inset:0;z-index:58;display:grid;place-items:center;padding:20px;
+  background:rgba(5,7,15,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#result .menu-card{width:min(400px,100%);max-height:88vh;overflow:auto}
+#result h2{font-size:13px;letter-spacing:1.4px;color:var(--dim);text-transform:uppercase}
+#r-top{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:16px 0 2px;text-align:center}
+#r-top div{padding:12px 4px;border-radius:13px;background:rgba(255,255,255,.04);
+  border:1px solid var(--line)}
+#r-top b{display:block;font-size:23px;font-weight:800;font-variant-numeric:tabular-nums}
+#r-top span{font-size:11px;color:var(--dim)}
+#r-rows{list-style:none;margin-top:14px}
+#r-rows li{display:flex;justify-content:space-between;gap:12px;padding:9px 0;
+  border-bottom:1px solid var(--line);font-size:13.5px;color:var(--dim)}
+#r-rows b{color:var(--txt);font-variant-numeric:tabular-nums}
+.r-sum,.r-total{display:flex;justify-content:space-between;gap:12px;
+  align-items:baseline;padding:11px 0;font-size:14px}
+.r-sum{border-bottom:1px solid var(--line)}
+.r-total{color:var(--dim)}
+.r-sum b,.r-total b{font-size:17px;font-weight:800;color:var(--gd);
+  font-variant-numeric:tabular-nums}
+/* 2단계 — 레벨. 오르면 #r-lvup 이 크게 뜬다. */
+#r-lvup{margin-top:12px;padding:14px;border-radius:13px;text-align:center;
+  background:linear-gradient(92deg,rgba(255,204,85,.18),rgba(255,204,85,.06));border:1px solid rgba(255,204,85,.5)}
+#r-lvup b{display:block;font-size:26px;font-weight:900;letter-spacing:3px;color:#ffcc55}
+#r-lvup span{font-size:13px;color:var(--txt)}
+.r-xp{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:center;margin-top:12px;font-size:12px;color:var(--dim)}
+.r-xp b{font-size:15px;color:var(--txt)}
+.r-xpbar{height:6px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden}
+.r-xpbar i{display:block;height:100%;width:0;background:var(--cy)}
+.r-xp span{font-variant-numeric:tabular-nums}
+.r-xp em{grid-column:1/-1;font-style:normal;text-align:right;color:var(--cy)}
+#r-close{margin-top:16px;width:100%;padding:13px;border:0;border-radius:13px;cursor:pointer;
+  font-size:15px;font-weight:800;color:#04121a;background:linear-gradient(92deg,var(--cy),#8affd8)}
+</style>
 </head>
 <body>
 
@@ -28,6 +68,7 @@
       <div class="stat"><span class="lbl">PING</span><b id="s-ping">–</b></div>
       <div class="stat net"><span class="lbl">FPS</span><b id="s-fps">–</b></div>
       <div class="stat net"><span class="lbl">KB/S</span><b id="s-kbps">–</b></div>
+      <div class="stat"><span class="lbl">PILOT</span><b id="s-prog">Lv.1  0 G</b></div>
       <div class="stat"><span class="lbl">HULL</span>
         <div class="bar"><span id="bar-hp"></span></div>
       </div>
@@ -195,6 +236,28 @@
     </footer>
   </div>
 </main>
+
+<!-- ── 출격 결과 ───────────────────────────────────────── -->
+<!-- 채우고 띄우는 것은 hud.js 의 showResult() 다. 판이 끝나는 자리(홈으로)는
+     main.js 에 있지만 UI실은 그 파일을 못 고치므로, hud.js 가 draw() 에서
+     world.srv 가 사라지는 것을 보고 띄운다. -->
+<div id="result" class="hidden">
+  <div class="menu-card">
+    <h2>출격 결과</h2>
+    <div id="r-top">
+      <div><b id="r-kills">0</b><span>격추</span></div>
+      <div><b id="r-deaths">0</b><span>사망</span></div>
+      <div><b id="r-streak">0</b><span>최고 연속</span></div>
+    </div>
+    <ul id="r-rows"></ul>
+    <div class="r-sum"><span>이번 판</span><b id="r-earn">0 G</b></div>
+    <div class="r-total"><span>가진 골드</span><b id="r-gold">0 G</b></div>
+    <div id="r-lvup" class="hidden"></div>
+    <div class="r-xp"><b id="r-lvl">Lv.1</b><div class="r-xpbar"><i id="r-expfill"></i></div>
+      <span id="r-exptxt">0 / 1000</span><em id="r-exp">+0 EXP</em></div>
+    <button id="r-close" type="button">확인</button>
+  </div>
+</div>
 
 <script type="module" src="/js/main.js"></script>
 </body>

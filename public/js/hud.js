@@ -7,6 +7,39 @@ const GREEN = '#7dfba6';
 const AMBER = '#ffcc55';
 const RED = '#ff5f6d';
 
+// ── 출격 보상 (DESIGN.md 1단계 보상표) ───────────────────────────────
+// 이 숫자는 사장님이 못박은 것이다. 바꾸려면 DESIGN.md 를 먼저 고쳐라.
+const GOLD_KILL = 100;      // 격추 1기당
+const GOLD_ASSIST = 30;     // 어시스트 1회당
+const GOLD_MIN = 60;        // 생존 1분당 (= 1초에 1골드)
+const GOLD_STREAK = 50;     // 연속 격추 보너스 — n연속에 50×n, **2연속부터**
+// 네 값 모두 이제 스냅샷에 있다. 앞 근무는 어시스트·연속을 "서버가 안 보낸다"
+// 며 뺐는데, 그 뒤 프로그래밍실이 `de`·`ast`·`bst` 를 결과 화면용으로 실어
+// 보냈다(cdf0534, game.py:1219 주석이 이 파일을 가리킨다). 그래서 되살렸다.
+
+// 경험치 (DESIGN.md 2단계). 같은 보상표의 오른쪽 칸이다.
+const EXP_KILL = 100;
+const EXP_ASSIST = 30;
+const EXP_MIN = 20;         // 생존 1분당 — 골드(60)와 다르다
+const EXP_STREAK = 50;      // n연속에 50×n, 2연속부터
+
+// localStorage 는 사생활 보호 창에서 던질 수 있다. 진행값 셋은 여기로만 읽고 쓴다.
+const store = {
+  get(k) { try { return Math.max(0, +localStorage.getItem(k) || 0); } catch (_) { return 0; } },
+  set(k, v) { try { localStorage.setItem(k, String(v)); } catch (_) {} },
+};
+
+/**
+ * 누적 경험치 → 레벨. 다음 레벨까지 필요한 양은 **지금 레벨 × 1000** 이다
+ * (1→2 1000, 2→3 2000 …). 그래서 Lv.L 에 닿는 누계는 500·L·(L−1).
+ * 레벨은 저장하지 않고 경험치에서 매번 계산한다 — 둘을 따로 두면 언젠가 어긋난다.
+ */
+export function levelOf(exp) {
+  let level = 1, need = 1000;
+  while (exp >= need) { exp -= need; level++; need = level * 1000; }
+  return { level, into: exp, need };
+}
+
 export class Hud {
   constructor(canvas, world, scene, input) {
     this.cv = canvas;
@@ -16,6 +49,28 @@ export class Hud {
     this.input = input;
     this.resize();
     addEventListener('resize', () => this.resize());
+
+    // 출격 결과 화면. trk 는 '지금 진행 중인 판의 성적'이고, 판이 없으면 null.
+    this.trk = null;
+    this.el = {
+      result: document.getElementById('result'), hud: document.getElementById('hud'),
+      kills: document.getElementById('r-kills'), deaths: document.getElementById('r-deaths'),
+      streak: document.getElementById('r-streak'), rows: document.getElementById('r-rows'),
+      earn: document.getElementById('r-earn'), gold: document.getElementById('r-gold'),
+      exp: document.getElementById('r-exp'), lvl: document.getElementById('r-lvl'),
+      expFill: document.getElementById('r-expfill'), expTxt: document.getElementById('r-exptxt'),
+      lvup: document.getElementById('r-lvup'), prog: document.getElementById('s-prog'),
+    };
+    document.getElementById('r-close')
+      ?.addEventListener('click', () => this.el.result?.classList.add('hidden'));
+    this.showProgress();
+  }
+
+  /** 계기판 구석의 `Lv.7  3420 G`. 값이 바뀌는 것은 판이 끝날 때뿐이라 그때만 고친다. */
+  showProgress() {
+    if (!this.el.prog) return;
+    const { level } = levelOf(store.get('skyarena.exp'));
+    this.el.prog.textContent = `Lv.${level}  ${store.get('skyarena.gold')} G`;
   }
 
   resize() {
@@ -41,6 +96,7 @@ export class Hud {
     const ctx = this.ctx, W = this.world, s = W.srv;
     ctx.clearRect(0, 0, this.w, this.h);
     if (this.scene?.showPerf) this.perf(ctx);
+    this.trackSortie(s);
     if (!s || !W.me) return;
 
     const cx = this.w / 2, cy = this.h / 2;
@@ -75,6 +131,119 @@ export class Hud {
     this.offscreen(ctx, cx, cy);
     this.hitMarker(ctx, cx, cy);
     ctx.restore();
+  }
+
+  /**
+   * 이번 판의 성적을 매 프레임 적어 둔다 (DESIGN.md 1단계).
+   *
+   * **왜 여기서 세고 있나.** 판이 끝나는 자리는 main.js 의 '홈으로' 단추인데,
+   * 그 처리기가 `world.srv` 를 null 로 만든 **뒤에** 다음 프레임이 온다. 즉
+   * 끝나는 순간에 성적을 읽을 방법이 없다. UI실은 main.js 를 고칠 수 없으므로
+   * (담당 파일은 hud.js · input.js · index.html 셋뿐) 스냅샷이 올 때마다 미리
+   * 모아 두고, srv 가 사라지는 프레임에 모아 둔 값으로 결과를 만든다.
+   * `draw()` 는 비행 중이 아니어도 매 프레임 불리므로 이 전이를 놓치지 않는다.
+   * main.js 의 saveRecord() 와는 서로 모르는 값이다(그쪽은 출격 횟수·최고 점수).
+   *
+   * **왜 서버 값을 그대로 안 쓰나 — 골드를 두 번 받는 자리다.** 서버는 잠깐
+   * 끊겼다 온 사람의 전적을 되돌려 준다(`app.py:200·208`, 유효시간 120초).
+   * 그런데 '홈으로' 는 소켓을 닫고 **곧바로 다시 붙는다**(main.js:418·424).
+   * 그래서 2분 안에 재출격하면 지난 판의 격추·어시스트가 그대로 실려 오고,
+   * 절대값을 읽으면 같은 격추로 골드를 두 번 받는다. 판 첫 스냅샷을 기준선으로
+   * 잡고 **늘어난 만큼만** 센다.
+   */
+  trackSortie(s) {
+    const now = performance.now();
+    if (!s) {
+      // srv 가 null 이 되는 경우는 둘이다 — 홈으로 나갔을 때와, 끊겼다가
+      // 다시 붙어 world.setup() 이 도는 때다. 뒤쪽은 판이 계속되는 것이라
+      // 결과를 띄우면 안 된다. HUD 가 숨겨졌는지로 둘을 가른다(main.js 의
+      // '홈으로' 처리기가 srv 를 지운 **직후** 같은 프레임에 숨긴다).
+      if (this.trk && this.el.hud?.classList.contains('hidden')) {
+        const t = this.trk;
+        this.trk = null;
+        this.showResult(t);
+      }
+      return;
+    }
+    let t = this.trk;
+    if (!t) {
+      // 새 판이 시작됐다. 지난 판 결과가 떠 있으면 치운다.
+      t = this.trk = { base: null, kills: 0, deaths: 0, assists: 0, streak: 0,
+                       alive: 0, last: now };
+      this.el.result?.classList.add('hidden');
+    }
+    // 기준선은 이 판에서 처음 받은 스냅샷이다. 넷 다 서버가 실어 준다
+    // (game.py:1246 — `de`·`ast`·`bst` 는 이 화면을 위해 들어온 칸이다).
+    const cur = { kl: s.kl | 0, de: s.de | 0, ast: s.ast | 0, bst: s.bst | 0 };
+    if (!t.base) t.base = cur;
+    // 늘어난 만큼만 센다. 복구 유효시간(120초)이 지난 뒤 재접속하면 서버가
+    // 새 기체를 줘서 값이 기준선 아래로 떨어지는데, 그때는 0 으로 눌러
+    // **덜 주는 쪽**으로 틀린다. 골드는 남는 값이라 부풀면 안 된다.
+    t.kills = Math.max(0, cur.kl - t.base.kl);
+    t.deaths = Math.max(0, cur.de - t.base.de);
+    t.assists = Math.max(0, cur.ast - t.base.ast);
+    // `bst` 는 개수가 아니라 '판 전체의 최고 연속'(최댓값)이라 뺄셈이 정확한
+    // 값은 아니다. 기준선이 0 인 보통의 출격에서는 그대로 맞고, 전적이 복구된
+    // 경우에는 실제보다 작거나 같다 — 역시 덜 주는 쪽이다.
+    t.streak = Math.max(0, cur.bst - t.base.bst);
+    // 생존 시간은 **살아 있는 동안만** 센다(재출격 대기는 안 센다). 탭이
+    // 가려져 rAF 가 멎으면 그동안은 안 세는데, 덜 세는 쪽이라 골드가 부풀지
+    // 않는다. 돌아온 첫 프레임의 큰 스텝은 0.25초로 자른다.
+    const dt = Math.min(0.25, (now - t.last) / 1000);
+    t.last = now;
+    if (s.al) t.alive += dt;
+  }
+
+  /** 결과 화면을 채우고 띄운다. 보상은 DESIGN.md 1단계 표 그대로다. */
+  showResult(t) {
+    const e = this.el;
+    if (!e.result) return;
+    const secs = Math.floor(t.alive);
+    const mins = Math.floor(secs / 60);
+    const timeText = mins ? `${mins}분 ${secs % 60}초` : `${secs}초`;
+    const killG = t.kills * GOLD_KILL;
+    const astG = t.assists * GOLD_ASSIST;
+    // 연속 보너스는 **2연속부터**다(DESIGN.md 보상표의 n≥2).
+    const stkG = t.streak >= 2 ? t.streak * GOLD_STREAK : 0;
+    const timeG = Math.floor(secs * GOLD_MIN / 60);
+    const earn = killG + astG + stkG + timeG;
+    // 골드는 **판이 끝날 때 한 번만** 쓴다. 매 틱 localStorage 를 건드리면
+    // 프레임이 튄다(DESIGN.md '지킬 것').
+    const gold = store.get('skyarena.gold') + earn;
+    store.set('skyarena.gold', gold);
+
+    // 경험치도 같은 자리에서 한 번만 쌓는다. 레벨이 오른 만큼 스킬 포인트를 준다
+    // (한 판에 두 단계 오르면 2). 쓰는 곳은 4단계에서 만든다.
+    const expGain = t.kills * EXP_KILL + t.assists * EXP_ASSIST
+      + (t.streak >= 2 ? t.streak * EXP_STREAK : 0) + Math.floor(secs * EXP_MIN / 60);
+    const exp0 = store.get('skyarena.exp'), exp1 = exp0 + expGain;
+    const before = levelOf(exp0).level, after = levelOf(exp1);
+    store.set('skyarena.exp', exp1);
+    if (after.level > before) store.set('skyarena.sp', store.get('skyarena.sp') + after.level - before);
+
+    e.kills.textContent = t.kills;
+    e.deaths.textContent = t.deaths;
+    e.streak.textContent = t.streak;
+    // 넣는 값이 전부 내가 계산한 숫자라 이스케이프할 것이 없다.
+    // 0 인 줄은 아예 빼서 눈이 갈 곳을 줄인다(어시스트·연속 보너스).
+    const row = (label, g) => `<li><span>${label}</span><b>${g} G</b></li>`;
+    e.rows.innerHTML = row(`격추 ${t.kills} × ${GOLD_KILL}`, killG)
+      + (astG ? row(`어시스트 ${t.assists} × ${GOLD_ASSIST}`, astG) : '')
+      + (stkG ? row(`${t.streak}연속 보너스`, stkG) : '')
+      + row(`생존 ${timeText}`, timeG);
+    e.earn.textContent = `${earn} G`;
+    e.gold.textContent = `${gold} G`;
+    if (e.exp) e.exp.textContent = `+${expGain} EXP`;
+    if (e.lvl) e.lvl.textContent = `Lv.${after.level}`;
+    if (e.expFill) e.expFill.style.width = `${(100 * after.into / after.need).toFixed(1)}%`;
+    if (e.expTxt) e.expTxt.textContent = `${after.into} / ${after.need}`;
+    if (e.lvup) {
+      const up = after.level - before;
+      e.lvup.classList.toggle('hidden', up <= 0);
+      e.lvup.innerHTML = `<b>LEVEL UP</b><span>Lv.${before} → Lv.${after.level} · 스킬 포인트 +${up}</span>`;
+    }
+    this.showProgress();
+    e.result.classList.remove('hidden');
   }
 
   style(ctx, s) {
